@@ -3,53 +3,56 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
-	"os"
 )
 
 var clients = make(map[net.Conn]bool)
 var broadcast = make(chan string)
 
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+}
+
 func main() {
-	listener, err := net.Listen("tcp", "localhost:8080")
+	// 启动监听器
+	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		fmt.Println("Error starting server:", err)
-		os.Exit(1)
+		fmt.Println("Error starting TCP server:", err)
+		return
 	}
 	defer listener.Close()
-
-	go broadcaster()
+	fmt.Println("TCP server is running on port 8080")
 
 	for {
+		// 接受客户端连接
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection:", err)
 			continue
 		}
-
-		clients[conn] = true
-		go handleClient(conn)
+		fmt.Println("Client connected")
+		go handleTCPConnection(conn)
 	}
 }
 
-func broadcaster() {
+func handleTCPConnection(conn net.Conn) {
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
 	for {
-		message := <-broadcast
-		for conn := range clients {
-			_, err := fmt.Fprintln(conn, message)
-			if err != nil {
-				delete(clients, conn)
-				conn.Close()
-			}
+		// 读取客户端发送的数据
+		message, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading from client:", err)
+			return
+		}
+		fmt.Printf("Message received: %s", message)
+
+		// 向客户端发送响应
+		_, err = conn.Write([]byte("Message received: " + message))
+		if err != nil {
+			fmt.Println("Error writing to client:", err)
+			return
 		}
 	}
-}
-
-func handleClient(conn net.Conn) {
-	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		broadcast <- scanner.Text()
-	}
-	delete(clients, conn)
-	conn.Close()
 }

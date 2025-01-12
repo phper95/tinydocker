@@ -1,21 +1,20 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
 )
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
-
 func main() {
-	// 定义一个命令参数
-	name := flag.String("name", "world", "a name to greet")
-
-	// 解析命令行参数
-	flag.Parse()
-
-	// 输出结果
-	log.Printf("Hello, %s!\n", *name)
+	fmt.Println(sum(1, 2, 3, 4, 5)) // 输出：15
+}
+func sum(numbers ...int) int {
+	total := 0
+	for _, num := range numbers {
+		total += num
+	}
+	return total
 }

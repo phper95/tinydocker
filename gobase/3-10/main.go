@@ -2,47 +2,29 @@ package main
 
 import (
 	"log"
+	"sync"
 )
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
+func worker(id int, wg *sync.WaitGroup) {
+	defer wg.Done() // 任务完成时减 1
+	log.Printf("Worker %d is starting\n", id)
+	// 模拟任务
+	log.Printf("Worker %d is done\n", id)
+}
+
 func main() {
-	// 创建高优先级和低优先级任务队列
-	highPriority := make(chan string, 10) // 增大缓冲区以模拟更多任务
-	lowPriority := make(chan string, 10)
+	var wg sync.WaitGroup
 
-	// 模拟任务生成
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-	go func() { lowPriority <- "Low Priority Task " }()
-	go func() { highPriority <- "High Priority Task " }()
-
-	// 优先处理高优先级任务的循环
-	for {
-		select {
-		case task := <-highPriority: // 先处理高优先级任务
-			log.Println("Processing High Priority:", task)
-		default: // 若没有高优先级任务，再尝试处理低优先级任务
-			select {
-			case task := <-lowPriority:
-				log.Println("Processing Low Priority:", task)
-				//case <-time.After(time.Minute): // 避免低优先级阻塞
-				//	log.Println("No tasks available")
-			}
-		}
+	// 启动 3 个 Goroutine
+	for i := 1; i <= 3; i++ {
+		wg.Add(1) // 增加计数器
+		go worker(i, &wg)
 	}
+
+	wg.Wait() // 等待所有 Goroutine 完成
+	log.Println("All workers finished")
 }

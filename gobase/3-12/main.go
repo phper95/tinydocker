@@ -2,23 +2,34 @@ package main
 
 import (
 	"log"
-	"sync"
+	"time"
 )
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
-func main() {
-	//展示计数在并发环境中的错误用法
-	count := 0
-	wg := &sync.WaitGroup{}
-	for i := 0; i < 10000; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			count++
-		}()
+
+func producer(ch chan int, id int) {
+	for i := 1; i <= 5; i++ {
+		log.Printf("Producer %d produced: %d\n", id, i)
+		ch <- i
+		time.Sleep(time.Millisecond * 500) // 模拟生产时间
 	}
-	wg.Wait()
-	log.Printf("count: %d", count)
+	close(ch)
+}
+
+func consumer(ch chan int, id int) {
+	for val := range ch {
+		log.Printf("Consumer %d consumed: %d\n", id, val)
+		time.Sleep(time.Millisecond * 800) // 模拟消费时间
+	}
+}
+
+func main() {
+	ch := make(chan int, 5) // 缓冲区大小为 5
+
+	go producer(ch, 1)
+	go consumer(ch, 1)
+
+	time.Sleep(time.Second * 5)
 }

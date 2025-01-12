@@ -2,20 +2,16 @@ package main
 
 import (
 	"log"
-	"time"
 )
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
-
 func main() {
-	x := 10
+
+	ch := make(chan int)
 	go func() {
-		x = 20
+		ch <- 1
 	}()
-	for i := 0; i < 2; i++ {
-		log.Println("x:", x)
-		time.Sleep(time.Second)
-	}
+	log.Println(<-ch)
 }

@@ -1,25 +1,39 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"net/http"
+	"sort"
+)
 
-func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-}
 func main() {
-	slice := []int{0, 1, 2, 3}
-	//var fns []func()
-	//for _, val := range slice {
-	//	fns = append(fns, func() {
-	//		log.Println(val)
-	//	})
-	//}
-	//for _, fn := range fns {
-	//	fn()
-	//}
+	nums := []int{1, 2, 3, 4, 5}
+	sort.Slice(nums, func(i, j int) bool {
+		return nums[i] < nums[j]
+	})
 
-	for _, val := range slice {
-		func() {
-			log.Println(val)
-		}()
+	go func() {
+		// do something
+	}()
+
+	defer func() {
+		// do something
+	}()
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, world!"))
+	})
+
+	dobule := multiply(2)
+	fmt.Println(dobule(5))
+
+	fmt.Println(multiply(2)(5))
+	fmt.Println(multiply(3)(5))
+
+}
+
+func multiply(factor int) func(int) int {
+	return func(num int) int {
+		return num * factor
 	}
 }

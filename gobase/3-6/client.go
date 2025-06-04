@@ -1,42 +1,60 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
-	"net"
+	"io"
+	"mime/multipart"
+	"net/http"
 	"os"
+	"path/filepath"
 )
 
 func main() {
-	// 连接到服务器
-	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	filePath := "./example.txt"
+
+	//打开文件
+	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println("Error connecting to server:", err)
-		return
+		panic(err)
 	}
-	defer conn.Close()
+	defer file.Close()
 
-	fmt.Println("Connected to TCP server. Type your message:")
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		// 从用户输入读取消息
-		fmt.Print(">> ")
-		message, _ := reader.ReadString('\n')
-
-		// 发送消息到服务器
-		_, err = conn.Write([]byte(message))
-		if err != nil {
-			fmt.Println("Error writing to server:", err)
-			return
-		}
-
-		// 接收服务器的响应
-		reply, err := bufio.NewReader(conn).ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from server:", err)
-			return
-		}
-		fmt.Printf("Server reply: %s", reply)
+	//读取文件内容
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
+	if err != nil {
+		panic(err)
 	}
+	_, err = io.Copy(part, file)
+	if err != nil {
+		panic(err)
+	}
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	// 创建 HTTP POST 请求
+	req, err := http.NewRequest("POST", "http://localhost:8080/api/v1/upload", body)
+	if err != nil {
+		panic(err)
+	}
+	// 设置请求头
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 发送请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	//读取响应内容
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(respBody))
+
 }

@@ -2,34 +2,37 @@ package main
 
 import (
 	"log"
+	"sync"
 	"time"
 )
 
-func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+func main() {
+	ch := make(chan int, 5)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go producer(ch, 1, &wg)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go consumer(ch, i+1, &wg)
+	}
+
+	wg.Wait()
 }
 
-func producer(ch chan int, id int) {
-	for i := 1; i <= 5; i++ {
-		log.Printf("Producer %d produced: %d\n", id, i)
+func producer(ch chan int, id int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for i := 1; i < 6; i++ {
+		log.Println("producer", id, "send", i)
 		ch <- i
-		time.Sleep(time.Millisecond * 500) // 模拟生产时间
+		time.Sleep(time.Millisecond * 500)
 	}
 	close(ch)
 }
 
-func consumer(ch chan int, id int) {
+func consumer(ch chan int, id int, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for val := range ch {
-		log.Printf("Consumer %d consumed: %d\n", id, val)
-		time.Sleep(time.Millisecond * 800) // 模拟消费时间
+		log.Println("consumer", id, "receive", val)
+		time.Sleep(time.Millisecond * 800)
 	}
-}
-
-func main() {
-	ch := make(chan int, 5) // 缓冲区大小为 5
-
-	go producer(ch, 1)
-	go consumer(ch, 1)
-
-	time.Sleep(time.Second * 5)
 }

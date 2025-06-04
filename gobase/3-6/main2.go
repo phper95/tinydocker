@@ -1,64 +1,36 @@
 package main
 
 import (
-	"bufio"
+	"io"
 	"log"
 	"os"
 )
 
-func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-}
-
 func main() {
-	//file, err := os.Create("output.txt")
-	//if err != nil {
-	//	log.Println("Error creating file:", err)
-	//	return
-	//}
-	//defer file.Close()
-	//
-	//_, err = file.WriteString("This is a new file content!")
-	//if err != nil {
-	//	log.Println("Error writing to file:", err)
-	//}
+	//按照指定字节来读取文件
 
-	//追加写
-	file, err := os.OpenFile("output.txt", os.O_APPEND|os.O_WRONLY, 0644)
+	// 1. 打开文件
+	file, err := os.Open("example.txt")
 	if err != nil {
-		log.Println("Error opening file:", err)
-		return
+		panic(err)
 	}
 	defer file.Close()
-
-	_, err = file.WriteString("\nAppended content!")
-	if err != nil {
-		log.Println("Error appending to file:", err)
-	}
-
-	//io.WriteFile
-	str := "This is a new file content!"
-	err = os.WriteFile("output.txt", []byte(str), 0644)
-	if err != nil {
-		log.Println("Error writing to file:", err)
-	}
-
-	// bufio.NewWriter
-	file, err = os.Create("output.txt")
-	if err != nil {
-		log.Println("Error creating file:", err)
-		return
-	}
-	defer file.Close()
-	//创建writer对象
-	writer := bufio.NewWriter(file)
-	for i := 0; i < 10; i++ {
-		_, err = writer.WriteString(string(i) + "\n")
+	// 2. 读取指定字节
+	buffer := make([]byte, 1)
+	b := make([]byte, 10)
+	for {
+		n, err := file.Read(buffer)
 		if err != nil {
-			log.Println("Error writing to file:", err)
+			if err == io.EOF {
+				err = nil
+			} else {
+				log.Println("read file error:", err)
+			}
+			break
 		}
+		b = append(b, buffer[:n]...)
+		log.Println("len(b):cap(b)", len(b), cap(b))
 	}
-	//将缓存中的内容写入文
-	writer.Flush()
+	log.Printf("read %d str: %s", len(b), string(b))
 
 }

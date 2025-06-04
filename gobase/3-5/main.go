@@ -1,21 +1,24 @@
 package main
 
 import (
-	"log"
-	"time"
+	"fmt"
+	"sync"
 )
 
-func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-}
-
 func main() {
-	x := 10
-	go func() {
-		x = 20
-	}()
-	for i := 0; i < 2; i++ {
-		log.Println("x:", x)
-		time.Sleep(time.Second)
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	count := 0
+	for i := 0; i < 1000000; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lock.Lock()
+			count++
+			lock.Unlock()
+			//fmt.Println("Hello, world!")
+		}()
 	}
+	wg.Wait()
+	fmt.Println(count)
 }

@@ -2,24 +2,24 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-
-	req, _ := http.NewRequestWithContext(ctx, "GET", "http://localhost/api/test", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://www.google.com", nil)
+	if err != nil {
+		panic(err)
+	}
 	client := &http.Client{}
-
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("请求失败：", err)
+		log.Println("请求失败", err)
 		return
 	}
 	defer resp.Body.Close()
-
-	fmt.Println("请求成功，状态码：", resp.StatusCode)
+	log.Println("请求成功", resp.StatusCode)
 }

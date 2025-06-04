@@ -4,36 +4,51 @@ import (
 	"context"
 	"errors"
 	"log"
+	"runtime"
 	"time"
 )
 
 func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	go PrintGroutineCount(time.Second)
+}
+func PrintGroutineCount(dur time.Duration) {
+	ticker := time.NewTicker(dur)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			log.Printf("Current Groutine count: %d", runtime.NumGoroutine())
+		}
+	}
+}
+func main() {
+	f1()
+	log.Println("main done")
+	select {}
 }
 
-func main() {
-	// 创建一个 2秒超时的 Context
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel() // 确保退出时释放资源
-	// 模拟一个耗时任务
+func f1() {
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*2)
+	defer cancel()
 	done := make(chan struct{}, 1)
 	go func() {
 		defer func() {
-			done <- struct{}{}
+			close(done)
+			// done <- struct{}{}
 		}()
-		time.Sleep(3 * time.Second)
-		log.Println("任务完成！")
+		time.Sleep(time.Second * 3)
+		log.Println("done")
 	}()
+
 	select {
 	case <-done:
-		log.Println("任务完成！")
+		log.Println("finished")
 	case <-ctx.Done():
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Println("任务超时！")
+			log.Println("timed out")
+		} else if errors.Is(ctx.Err(), context.Canceled) {
+			log.Println("canceled")
 		}
-		if errors.Is(ctx.Err(), context.Canceled) {
-			log.Println("任务取消！")
-		}
-
+		return
 	}
 }

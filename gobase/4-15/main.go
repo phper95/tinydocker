@@ -1,3 +1,3 @@
 package main
 
-// 定义一个函数 validate_email，检查字符串是否为合法邮箱格式
+// 使用gin框架创建一个 GET 接口 /hello，返回 JSON 格式的 Hello World

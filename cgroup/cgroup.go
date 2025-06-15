@@ -55,8 +55,7 @@ func main() {
 
 	// 启动子进程
 	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting command: %v\n", err)
-		return
+		log.Fatalln("Error starting command", err)
 	}
 
 	fmt.Println("Child process started with:")

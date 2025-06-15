@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	cgroupMemoryPath = "/sys/fs/cgroup/memory"
-	memoryLimit      = "100m" // 限制为100MB
+	cgroupPath  = "/sys/fs/cgroup"
+	memoryLimit = "100000000" // 100MB
 )
 
 func init() {
@@ -47,7 +47,7 @@ func main() {
 	log.Printf("Child process PID: %d\n", cmd.Process.Pid)
 
 	// 启动子进程前设置cgroup
-	if err := setupCgroup(cmd.Process.Pid); err != nil {
+	if err := setupCgroupV2(cmd.Process.Pid); err != nil {
 		fmt.Printf("Error setting up cgroup: %v\n", err)
 		return
 	}
@@ -72,22 +72,23 @@ func main() {
 	}
 }
 
-func setupCgroup(pid int) error {
-	// 创建cgroup目录
+func setupCgroupV2(pid int) error {
 	cgroupName := fmt.Sprintf("go_demo_%d", pid)
-	cgroupDir := filepath.Join(cgroupMemoryPath, cgroupName)
+	cgroupDir := filepath.Join(cgroupPath, cgroupName)
+
+	// 创建 cgroup
 	if err := os.MkdirAll(cgroupDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cgroup dir: %v", err)
 	}
 
-	// 添加进程到cgroup
-	if err := ioutil.WriteFile(filepath.Join(cgroupDir, "tasks"),
+	// 添加进程
+	if err := ioutil.WriteFile(filepath.Join(cgroupDir, "cgroup.procs"),
 		[]byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
 		return fmt.Errorf("failed to add process to cgroup: %v", err)
 	}
 
 	// 设置内存限制
-	if err := ioutil.WriteFile(filepath.Join(cgroupDir, "memory.limit_in_bytes"),
+	if err := ioutil.WriteFile(filepath.Join(cgroupDir, "memory.max"),
 		[]byte(memoryLimit), 0644); err != nil {
 		return fmt.Errorf("failed to set memory limit: %v", err)
 	}
@@ -97,7 +98,7 @@ func setupCgroup(pid int) error {
 
 func cleanupCgroup(pid int) {
 	cgroupName := fmt.Sprintf("go_demo_%d", pid)
-	cgroupDir := filepath.Join(cgroupMemoryPath, cgroupName)
+	cgroupDir := filepath.Join(cgroupPath, cgroupName)
 
 	// 移除cgroup目录
 	if err := os.RemoveAll(cgroupDir); err != nil {

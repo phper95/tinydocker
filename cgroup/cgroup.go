@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
+	"time"
 )
 
 const (
-	cgroupPath  = "/sys/fs/cgroup"
-	memoryLimit = "100000000" // 100MB
+	cgroupRoot  = "/sys/fs/cgroup"
+	memoryMax   = "memory.max"   // 内存限制文件
+	cgroupProcs = "cgroup.procs" // 进程管理文件
+	memoryLimit = "100m"         // 限制内存为 100MB
 )
 
 func init() {
@@ -20,87 +23,107 @@ func init() {
 }
 
 func main() {
-	fmt.Println("UTS Namespace + Cgroups Memory Limit Demo", os.Args[0])
-
-	// 显示当前主机名
-	hostname, err := os.Hostname()
-	if err != nil {
-		fmt.Printf("Error getting hostname: %v\n", err)
-		return
+	log.Println("Starting cgroup memory limit demo", os.Args)
+	switch len(os.Args) {
+	case 1:
+		runParentProcess()
+	case 2:
+		if os.Args[1] == "child" {
+			runChildProcess()
+			return
+		}
+		fallthrough
+	default:
+		fmt.Println("Usage: sudo go run main.go")
+		os.Exit(1)
 	}
-	fmt.Printf("Current hostname: %s\n", hostname)
+}
 
-	// 设置子进程的命名空间标志
-	cmd := exec.Command("/proc/self/exe")
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
+// 父进程逻辑
+func runParentProcess() {
+	// 创建新的 cgroup 路径
+	cgroupPath := filepath.Join(cgroupRoot, "memdemo")
+	if err := os.Mkdir(cgroupPath, 0755); err != nil && !os.IsExist(err) {
+		fmt.Printf("Error creating cgroup: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.Remove(cgroupPath) // 清理 cgroup
+
+	// 设置内存限制
+	if err := os.WriteFile(filepath.Join(cgroupPath, memoryMax), []byte(memoryLimit), 0644); err != nil {
+		fmt.Printf("Error setting memory limit: %v\n", err)
+		os.Exit(1)
 	}
 
-	// 设置子进程的输入/输出
+	// 禁用swap
+	if err := os.WriteFile(
+		filepath.Join(cgroupPath, "memory.swap.max"),
+		[]byte("0"),
+		0644,
+	); err != nil {
+		fmt.Printf("Failed to disable swap: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 准备子进程命令
+	cmd := exec.Command("/proc/self/exe", "child")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		log.Fatal("Error starting command:", err)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID, // 创建新命名空间
 	}
-	log.Printf("Child process PID: %d\n", cmd.Process.Pid)
-
-	// 启动子进程前设置cgroup
-	if err := setupCgroupV2(cmd.Process.Pid); err != nil {
-		fmt.Printf("Error setting up cgroup: %v\n", err)
-		return
-	}
-	defer cleanupCgroup(cmd.Process.Pid)
 
 	// 启动子进程
 	if err := cmd.Start(); err != nil {
-		log.Fatalln("Error starting command", err)
+		if err := cmd.Wait(); err != nil {
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					if status.Signaled() && status.Signal() == syscall.SIGKILL {
+						log.Println("Child process was OOM killed (expected behavior)")
+						return
+					}
+				}
+			}
+			log.Printf("Child process exited with error: %v\n", err)
+		}
 	}
 
-	fmt.Println("Child process started with:")
-	fmt.Println("1. New UTS namespace (isolated hostname)")
-	fmt.Println("2. Memory limit of 100MB via cgroups")
-	fmt.Println("Try these commands in the child shell:")
-	fmt.Println("  hostname new-hostname  # Change hostname (only in this namespace)")
-	fmt.Println("  stress --vm 1 --vm-bytes 150M  # Test memory limit (should be killed)")
-
-	// 等待子进程结束
-	if _, err := cmd.Process.Wait(); err != nil {
-		fmt.Printf("Command finished with error: %v\n", err)
+	// 将子进程 PID 加入 cgroup
+	pid := cmd.Process.Pid
+	if err := os.WriteFile(filepath.Join(cgroupPath, cgroupProcs), []byte(strconv.Itoa(pid)), 0644); err != nil {
+		fmt.Printf("Error adding process to cgroup: %v\n", err)
+		os.Exit(1)
 	}
+
+	// 等待子进程退出
+	if err := cmd.Wait(); err != nil {
+		fmt.Printf("Child process error: %+v\n", err)
+		return
+	}
+	fmt.Println("Parent: Child process exited")
 }
 
-func setupCgroupV2(pid int) error {
-	cgroupName := fmt.Sprintf("go_demo_%d", pid)
-	cgroupDir := filepath.Join(cgroupPath, cgroupName)
+// 子进程逻辑
+func runChildProcess() {
+	fmt.Printf("Child: PID = %d\n", os.Getpid())
 
-	// 创建 cgroup
-	if err := os.MkdirAll(cgroupDir, 0755); err != nil {
-		return fmt.Errorf("failed to create cgroup dir: %v", err)
+	// 尝试分配200MB内存 (超过设置的100MB限制)
+	var chunks [][]byte
+	for i := 0; i < 20; i++ {
+		// 每次分配10MB
+		chunk := make([]byte, 10*1024*1024)
+		for j := range chunk {
+			chunk[j] = byte(j % 256) // 确保内存被实际分配
+		}
+		chunks = append(chunks, chunk)
+		fmt.Printf("Allocated %dMB\n", (i+1)*10)
+		time.Sleep(3 * time.Second)
+		// 添加延迟，让OOM killer有时间触发
+		if i >= 9 { // 在分配100MB后暂停一下
+			fmt.Println("Pausing to allow OOM killer to trigger...")
+		}
 	}
 
-	// 添加进程
-	if err := ioutil.WriteFile(filepath.Join(cgroupDir, "cgroup.procs"),
-		[]byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
-		return fmt.Errorf("failed to add process to cgroup: %v", err)
-	}
-
-	// 设置内存限制
-	if err := ioutil.WriteFile(filepath.Join(cgroupDir, "memory.max"),
-		[]byte(memoryLimit), 0644); err != nil {
-		return fmt.Errorf("failed to set memory limit: %v", err)
-	}
-
-	return nil
-}
-
-func cleanupCgroup(pid int) {
-	cgroupName := fmt.Sprintf("go_demo_%d", pid)
-	cgroupDir := filepath.Join(cgroupPath, cgroupName)
-
-	// 移除cgroup目录
-	if err := os.RemoveAll(cgroupDir); err != nil {
-		fmt.Printf("Failed to remove cgroup dir: %v\n", err)
-	}
+	fmt.Println("Child: Memory allocated successfully")
 }

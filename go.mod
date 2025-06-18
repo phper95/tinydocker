@@ -2,4 +2,4 @@ module github.com/phper95/tinydocker
 
 go 1.23.4
 
-require golang.org/x/sys v0.17.0
+require github.com/creack/pty v1.1.24

@@ -8,8 +8,10 @@ import (
 )
 
 var RunCommand = &cli.Command{
+	// 命令名称
 	Name:  "run",
 	Usage: "Run a command in a new container",
+	// 命令参数
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "it",
@@ -17,7 +19,9 @@ var RunCommand = &cli.Command{
 		},
 	},
 	Action: func(ctx context.Context, cmd *cli.Command) error {
+		// 获取命令参数列表
 		args := cmd.Args().Slice()
+		// 命令行参数校验
 		if len(args) == 0 {
 			log.Fatal("No command specified")
 		}

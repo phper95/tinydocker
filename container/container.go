@@ -31,6 +31,7 @@ func Run(command []string, it bool) error {
 	}
 
 	if err := cmd.Start(); err != nil {
+		log.Println("Failed to start container process: %v", err)
 		return err
 	}
 
@@ -46,12 +47,13 @@ func Run(command []string, it bool) error {
 // 容器内部执行的初始化函数
 func InitContainer() {
 	mountProc()
-	syscall.Sethostname([]byte("simple-container"))
+	syscall.Sethostname([]byte(enum.AppName))
 }
 
 func mountProc() {
 	target := "/proc"
-	if err := syscall.Mount("proc", target, "proc", 0, ""); err != nil {
+	moutflags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID
+	if err := syscall.Mount("proc", target, "proc", uintptr(moutflags), ""); err != nil {
 		log.Fatalf("Failed to mount /proc: %v", err)
 	}
 }

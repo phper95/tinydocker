@@ -2,10 +2,7 @@ module github.com/phper95/tinydocker
 
 go 1.23.4
 
-require (
-	github.com/creack/pty v1.1.24
-	github.com/urfave/cli v1.22.17
-)
+require github.com/urfave/cli v1.22.17
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect

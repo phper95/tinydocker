@@ -38,7 +38,7 @@ func Run(args cli.Args, enableTTY bool) error {
 	// defer cg.Cleanup()
 	// cg.SetCPULimit(50) // 限制CPU为50%
 	// cg.Apply(cmd.Process.Pid)
-
+	
 	return initCmd.Wait()
 
 }
@@ -46,7 +46,6 @@ func Run(args cli.Args, enableTTY bool) error {
 // 容器内部执行的初始化函数
 
 func mountProc() {
-	// syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, "")
 	target := "/proc"
 	moutflags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID
 	if err := syscall.Mount("proc", target, "proc", uintptr(moutflags), ""); err != nil {

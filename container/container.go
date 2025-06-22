@@ -38,17 +38,19 @@ func Run(args cli.Args, enableTTY bool) error {
 	// defer cg.Cleanup()
 	// cg.SetCPULimit(50) // 限制CPU为50%
 	// cg.Apply(cmd.Process.Pid)
-	
+
 	return initCmd.Wait()
 
 }
 
 // 容器内部执行的初始化函数
 
-func mountProc() {
+func MountProc() error {
 	target := "/proc"
 	moutflags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID
 	if err := syscall.Mount("proc", target, "proc", uintptr(moutflags), ""); err != nil {
 		logger.Error("Failed to mount /proc: ", err)
+		return err
 	}
+	return nil
 }

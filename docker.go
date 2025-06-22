@@ -1,26 +1,31 @@
 package main
 
 import (
-	"context"
 	"github.com/phper95/tinydocker/commands"
 	"github.com/phper95/tinydocker/enum"
-	"github.com/urfave/cli/v3"
-	"log"
+	"github.com/phper95/tinydocker/pkg/logger"
+	"github.com/urfave/cli"
 	"os"
 )
 
+func init() {
+	logger.SetLevel(logger.DEBUG)
+	logger.SetOutput(os.Stdout)
+	logger.SetIncludeTrace(true)
+}
+
 func main() {
-	// 创建顶级命令（替代 v2 的 cli.App）
-	cmd := &cli.Command{
-		Name:  enum.AppName,
-		Usage: "A simple container runtime",
-		Commands: []*cli.Command{ // 注意是指针切片
-			commands.RunCommand,
-		},
+	app := cli.NewApp()
+	app.Name = enum.AppName
+	app.Usage = "A simple container runtime"
+	app.Version = "0.1.0"
+	app.Commands = []cli.Command{
+		commands.InitCommand,
+		commands.RunCommand,
 	}
 
 	// 使用 cli.Run 执行命令
-	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+	if err := app.Run(os.Args); err != nil {
+		logger.Error("app run error", err)
 	}
 }

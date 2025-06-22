@@ -1,13 +1,25 @@
 package commands
 
 import (
-	"context"
 	"github.com/phper95/tinydocker/container"
-	"github.com/urfave/cli/v3"
+	"github.com/phper95/tinydocker/pkg/logger"
+	"github.com/urfave/cli"
 	"log"
 )
 
-var RunCommand = &cli.Command{
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+}
+
+var InitCommand = cli.Command{
+	Name:  "init",
+	Usage: "Init container process run user's process in container. Do not call it outside",
+	Action: func(ctx *cli.Context) error {
+		logger.Debug("init command args:", ctx.Args())
+		return container.InitContainerProcess()
+	},
+}
+var RunCommand = cli.Command{
 	// 命令名称
 	Name:  "run",
 	Usage: "Run a command in a new container",
@@ -18,13 +30,16 @@ var RunCommand = &cli.Command{
 			Usage: "Interactive mode with pseudo-TTY",
 		},
 	},
-	Action: func(ctx context.Context, cmd *cli.Command) error {
+	Action: func(ctx *cli.Context) error {
 		// 获取命令参数列表
-		args := cmd.Args().Slice()
+		args := ctx.Args()
+		logger.Debug("args:", args)
 		// 命令行参数校验
 		if len(args) == 0 {
-			log.Fatal("No command specified")
+			logger.Error("No command specified")
+
 		}
-		return container.Run(args, cmd.Bool("it"))
+		enableTTY := ctx.Bool("it")
+		return container.Run(args, enableTTY)
 	},
 }

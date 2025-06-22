@@ -4,12 +4,7 @@ import (
 	"github.com/phper95/tinydocker/container"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
-	"log"
 )
-
-func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-}
 
 var InitCommand = cli.Command{
 	Name:  "init",

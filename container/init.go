@@ -2,6 +2,7 @@ package container
 
 import (
 	"github.com/phper95/tinydocker/enum"
+	"github.com/phper95/tinydocker/pkg/logger"
 	"log"
 
 	"io"
@@ -10,6 +11,12 @@ import (
 	"strings"
 	"syscall"
 )
+
+func init() {
+	logger.SetLevel(logger.DEBUG)
+	logger.SetOutput(os.Stdout)
+	logger.SetIncludeTrace(true)
+}
 
 func InitContainerProcess() error {
 	// 0-stdin

@@ -6,9 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
-	"sync"
+	"strings"
 )
 
 // 日志级别类型
@@ -70,8 +69,11 @@ type Logger struct {
 	minLevel     LogLevel
 	includeTrace bool
 	useColor     bool
-	mu           sync.Mutex
 	output       io.Writer // 保存原始输出目标
+}
+
+func init() {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
 }
 
 // 全局默认日志器
@@ -90,22 +92,16 @@ func NewLogger(out io.Writer, minLevel LogLevel, includeTrace bool) *Logger {
 
 // 设置日志级别
 func (l *Logger) SetLevel(level LogLevel) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.minLevel = level
 }
 
 // 设置是否包含调用追踪
 func (l *Logger) SetIncludeTrace(include bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.includeTrace = include
 }
 
 // 设置输出目标
 func (l *Logger) SetOutput(w io.Writer) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.output = w
 	l.Logger.SetOutput(w)
 	l.useColor = isTerminal(w) // 更新颜色设置
@@ -113,8 +109,6 @@ func (l *Logger) SetOutput(w io.Writer) {
 
 // 设置时间格式 (空字符串表示不使用时间)
 func (l *Logger) SetTimeFormat(format string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	if format == "" {
 		l.Logger.SetFlags(l.Flags() &^ log.LstdFlags)
 	} else {
@@ -124,8 +118,6 @@ func (l *Logger) SetTimeFormat(format string) {
 
 // 启用或禁用颜色输出
 func (l *Logger) SetColor(enable bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.useColor = enable
 }
 
@@ -141,7 +133,7 @@ func (l *Logger) trace(skip int) string {
 	}
 
 	// 仅保留文件名
-	file = filepath.Base(file)
+	// file = filepath.Base(file)
 	return fmt.Sprintf(" [%s:%d]", file, line)
 }
 
@@ -174,13 +166,14 @@ func (l *Logger) log(level LogLevel, format string, args ...interface{}) {
 	if level < l.minLevel {
 		return
 	}
-
 	msg := fmt.Sprintf(format, args...)
+	if len(args) == 0 || !strings.Contains(format, "%") {
+		msg = format + fmt.Sprint(args...)
+	}
+
 	trace := l.trace(4) // 跳过4层调用栈
 	coloredLevel := l.coloredLevel(level)
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.Logger.Printf("[%s]%s %s", coloredLevel, trace, msg)
 }
 

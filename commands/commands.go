@@ -32,12 +32,8 @@ var RunCommand = cli.Command{
 			Usage: "Memory limit for the container (e.g., 512m, 1g)",
 		},
 		&cli.StringFlag{
-			Name:  "c",
-			Usage: "CPU limit for the container (e.g., 1, 2)",
-		},
-		&cli.StringFlag{
-			Name:  "p",
-			Usage: "Port mapping (e.g., 8080:80)",
+			Name:  "cpus",
+			Usage: "CPU limit for the container (e.g., 1.5)",
 		},
 	},
 	Action: func(ctx *cli.Context) error {
@@ -50,7 +46,9 @@ var RunCommand = cli.Command{
 			return errors.New("No command specified")
 		}
 		enableTTY := ctx.Bool("it")
-		err := container.Run(args, enableTTY)
+		memoryLimit := ctx.String("m")
+		cpuLimit := ctx.String("cpus")
+		err := container.Run(args, enableTTY, memoryLimit, cpuLimit)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}

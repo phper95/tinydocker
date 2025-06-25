@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-func Run(args cli.Args, enableTTY bool) error {
+func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	cmd := args.Get(0)
 	argv := []string{"init", cmd}
 	logger.Debug("args is ", argv)
@@ -44,10 +44,34 @@ func Run(args cli.Args, enableTTY bool) error {
 	// 创建CGroup
 	cg := cgroups.NewCGroupManager(enum.AppName)
 	defer cg.Cleanup()
-	cg.SetMemoryLimit("100m")
-	cg.SetCPULimit(10000, 100000) // 限制CPU为50%
-	cg.Apply(initCmd.Process.Pid)
+	// 设置内存限制
+	if memoryLimit != "" {
+		err := cg.SetMemoryLimit(memoryLimit)
+		if err != nil {
+			logger.Error("Failed to set memory limit error: ", err)
+			return err
+		}
 
+	}
+
+	// 设置CPU限制
+	if cpuLimit != "" {
+		err := cg.SetCPULimit(cpuLimit) // 限制CPU为50%
+		if err != nil {
+			logger.Error("Failed to set cpu limit error: ", err)
+			return err
+		}
+
+	}
+
+	// 应用CGroup
+	err := cg.Apply(initCmd.Process.Pid)
+	if err != nil {
+		logger.Error("Failed to apply cgroup error: ", err)
+		return err
+	}
+
+	// 等待容器退出
 	return initCmd.Wait()
 
 }

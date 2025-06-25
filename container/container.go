@@ -1,12 +1,14 @@
 package container
 
 import (
+	"fmt"
 	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/enum"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 )
 
@@ -50,13 +52,78 @@ func Run(args cli.Args, enableTTY bool) error {
 
 }
 
-func Mount() {
+// GenerateCPULimit 根据指定的 CPU 使用百分比和周期生成 "quota period" 字符串
+// 例如：percent=10, period=100000 微秒（100ms） => 返回 "10000 100000"
+func GenerateCPULimit(percent int, period uint64) (string, error) {
+	if percent < 0 || percent > 100 {
+		return "", fmt.Errorf("percent must be between 0 and 100")
+	}
+	if period == 0 {
+		period = 100000 // 默认使用 100ms 周期
+	}
 
+	quota := (int64(percent) * int64(period)) / 100
+	return fmt.Sprintf("%d %d", quota, period), nil
+}
+
+func Mount() {
+	pwd, err := os.Getwd()
+	if err != nil {
+		logger.Error("Get current location error %v", err)
+		return
+	}
+	logger.Debug("Current location is %s", pwd)
+	MountProc()
+	MountPivotRoot(pwd)
+	MountTmpfs()
 }
 
 // 容器内部执行的初始化函数
 
 func MountProc() error {
+	// syscall.Mount(source string, target string, fstype string, flags uintptr, data string)
+	// 1. source string
+	// 含义：要挂载的源设备或目录。
+	// 示例：
+	// "proc"：表示虚拟文件系统（如 /proc）；
+	// "/dev/sda1"：表示物理设备；
+	// "tmpfs"：表示内存文件系统类型；
+	// root：当前目录或指定路径作为绑定挂载的源
+
+	// 2. target string
+	// 含义：挂载点路径，即将 source 挂载到哪个目录。
+	// 注意： // 必须是一个存在的目录；
+	// 如果是绑定挂载（bind mount），则目标路径也必须是一个有效的路径。
+	// 这里是挂载到 /proc。
+
+	// 3. fstype string
+	// 含义：文件系统类型。
+	// 常见值：
+	// "proc"：虚拟进程信息文件系统；
+	// "tmpfs"：基于内存的临时文件系统；
+	// "bind"：绑定挂载，将一个已存在的目录挂载到另一个位置；
+	// "ext4"、"xfs" 等：实际磁盘文件系统。
+	// 示例：MountTmpfs 使用 "tmpfs"。
+
+	// 4. flags uintptr
+	// 含义：挂载标志位，控制挂载行为。
+	// 常用标志（可组合使用 |）：
+	// MS_BIND：绑定挂载，复制一个已有的挂载点到新位置；
+	// MS_RDONLY：只读挂载；
+	// MS_NODEV：不允许访问设备文件；
+	// MS_NOEXEC：禁止执行可执行文件；
+	// MS_NOSUID：禁止 SUID 和 SGID 权限生效；
+	// MS_REC：递归操作，适用于绑定挂载时复制所有子挂载；
+	// MS_STRICTATIME / MS_RELATIME / MS_NOATIME：控制访问时间更新策略；
+	// MS_PRIVATE / MS_SHARED / MS_SLAVE：控制命名空间中挂载传播行为。
+
+	// 5. data string
+	// 含义：传递给文件系统的额外选项或参数。
+	// 格式：通常是逗号分隔的键值对字符串。
+	// 示例：
+	// "mode=755"：设置 tmpfs 挂载目录权限为 rwxr-xr-x；
+	// "size=100m"：限制 tmpfs 大小；
+	// ""：某些情况不需要参数时传空字符串。
 	target := "/proc"
 	// MS_NODEV 禁止访问设备文件。在该文件系统中，任何字符或块设备文件都将无法被打开。防止容器内通过设备文件访问宿主机硬件资源。
 	// MS_NOEXEC 禁止执行可执行文件。防止在该文件系统中运行任何程序（如 /proc 中一般不会执行程序）。
@@ -87,6 +154,48 @@ func MountRoofs(root string) error {
 	moutflags := syscall.MS_BIND | syscall.MS_REC
 	if err := syscall.Mount(root, root, "bind", moutflags, ""); err != nil {
 		logger.Error("Failed to mount rootfs: ", err)
+		return err
+	}
+	return nil
+}
+
+func MountPivotRoot(root string) error {
+	// 挂载根文件系统
+	err := MountRoofs(root)
+	if err != nil {
+		logger.Error("Failed to mount rootfs: ", err)
+		return err
+	}
+
+	// 创建一个临时目录 .pivot_root，用于在切换根目录时作为旧根的挂载点
+	// .开头对用户隐藏，防止用户误操作
+	pivotDir := filepath.Join(root, ".pivot_root")
+	if err = os.Mkdir(pivotDir, 0755); err != nil {
+		logger.Error("Failed to create pivot dir: ", err)
+		return err
+	}
+
+	// 将当前进程的根文件系统切换到新的根目录 root
+	// 旧的根目录会被挂载到 pivotDir 上
+	if syscall.PivotRoot(root, pivotDir); err != nil {
+		logger.Error("Failed to pivot root: ", err)
+		return err
+	}
+	// 修改当前工作目录到新根目录
+	if err = syscall.Chdir("/"); err != nil {
+		logger.Error("Failed to chdir: ", err)
+		return err
+	}
+	pivotDir = filepath.Join("/", ".pivot_root")
+	// 解除绑定挂载
+	// syscall.MNT_DETACH Linux 系统调用中用于卸载挂载点的一个标志，
+	// 其作用是将指定的挂载点从文件系统中分离（detach），而不影响其他引用该挂载点的位置。
+	if err = syscall.Unmount(pivotDir, syscall.MNT_DETACH); err != nil {
+		logger.Error("Failed to unmount pivot dir: ", err)
+		return err
+	}
+	if err = os.Remove(pivotDir); err != nil {
+		logger.Error("Failed to remove pivot dir: ", err)
 		return err
 	}
 	return nil

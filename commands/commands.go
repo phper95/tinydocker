@@ -27,6 +27,18 @@ var RunCommand = cli.Command{
 			Name:  "it",
 			Usage: "Interactive mode with pseudo-TTY",
 		},
+		&cli.StringFlag{
+			Name:  "m",
+			Usage: "Memory limit for the container (e.g., 512m, 1g)",
+		},
+		&cli.StringFlag{
+			Name:  "c",
+			Usage: "CPU limit for the container (e.g., 1, 2)",
+		},
+		&cli.StringFlag{
+			Name:  "p",
+			Usage: "Port mapping (e.g., 8080:80)",
+		},
 	},
 	Action: func(ctx *cli.Context) error {
 		// 获取命令参数列表

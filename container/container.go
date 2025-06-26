@@ -75,16 +75,29 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 
 }
 
-func Mount() {
+func Mount() error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		logger.Error("Get current location error %v", err)
-		return
+		return err
 	}
 	logger.Debug("Current location is %s", pwd)
-	MountPivotRoot(pwd)
-	MountProc()
-	MountTmpfs()
+	err = MountPivotRoot(pwd)
+	if err != nil {
+		logger.Error("Failed to mount pivot root error: ", err)
+		return err
+	}
+	err = MountProc()
+	if err != nil {
+		logger.Error("Failed to mount /proc error: ", err)
+		return err
+	}
+	err = MountTmpfs()
+	if err != nil {
+		logger.Error("Failed to mount tmpfs error: ", err)
+		return err
+	}
+	return nil
 }
 
 // 容器内部执行的初始化函数
@@ -141,8 +154,7 @@ func MountProc() error {
 	// MS_NODEV 禁止访问设备文件。在该文件系统中，任何字符或块设备文件都将无法被打开。防止容器内通过设备文件访问宿主机硬件资源。
 	// MS_NOEXEC 禁止执行可执行文件。防止在该文件系统中运行任何程序（如 /proc 中一般不会执行程序）。
 	// MS_NOSUID 禁止设置 set-user-ID 或 set-group-ID 权限。防止利用 SUID/SGID 提权，提高安全性。
-	moutflags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID
-	if err := syscall.Mount("proc", target, "proc", uintptr(moutflags), ""); err != nil {
+	if err := syscall.Mount("proc", target, "proc", syscall.MS_NODEV|syscall.MS_NOEXEC|syscall.MS_NOSUID, ""); err != nil {
 		logger.Error("Failed to mount /proc: ", err)
 		return err
 	}
@@ -164,14 +176,17 @@ func MountRoofs(root string) error {
 
 	// MS_REC启用递归挂载，将当前挂载点下的所有子挂载点也进行绑定。
 	// 让容器内部看到的挂载结构与宿主机一致。
-	moutflags := syscall.MS_BIND | syscall.MS_REC | syscall.MS_PRIVATE
-	if err := syscall.Mount(root, root, "bind", uintptr(moutflags), ""); err != nil {
-		logger.Error("Failed to mount rootfs: ", err)
+
+	// systemd 加入linux之后, mount namespace 就变成 shared by default, 必须显式声明新的mount namespace独立。
+	err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, "")
+	if err != nil {
+		logger.Error("Failed to make mounts private: ", err)
 		return err
 	}
-	// 强制 remount 成 private，防止传播到宿主机
-	if err := syscall.Mount("", root, "", uintptr(syscall.MS_PRIVATE|syscall.MS_REMOUNT), ""); err != nil {
-		logger.Warn("Failed to remount root as private: %v", err)
+
+	err = syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, "")
+	if err != nil {
+		logger.Error("Mount rootfs to itself error: %v", err)
 		return err
 	}
 	return nil

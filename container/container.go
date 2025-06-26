@@ -148,6 +148,10 @@ func MountProc() error {
 	// "mode=755"：设置 tmpfs 挂载目录权限为 rwxr-xr-x；
 	// "size=100m"：限制 tmpfs 大小；
 	// ""：某些情况不需要参数时传空字符串。
+
+	// /proc 是一个虚拟文件系统，提供进程和内核信息
+	// 容器需要查看自己的进程信息（如 PID、内存使用等），而不是宿主机上的全局信息。
+	// 通过挂载私有的 /proc，实现进程视图的隔离
 	target := "/proc"
 	// MS_NODEV 禁止访问设备文件。在该文件系统中，任何字符或块设备文件都将无法被打开。防止容器内通过设备文件访问宿主机硬件资源。
 	// MS_NOEXEC 禁止执行可执行文件。防止在该文件系统中运行任何程序（如 /proc 中一般不会执行程序）。
@@ -176,13 +180,20 @@ func MountRoofs(root string) error {
 	// MS_REC启用递归挂载，将当前挂载点下的所有子挂载点也进行绑定。
 	// 让容器内部看到的挂载结构与宿主机一致。
 	moutflags := syscall.MS_BIND | syscall.MS_REC
-	if err := syscall.Mount(root, root, "bind", moutflags, ""); err != nil {
+	if err := syscall.Mount(root, root, "bind", uintptr(moutflags), ""); err != nil {
 		logger.Error("Failed to mount rootfs: ", err)
 		return err
 	}
 	return nil
 }
 
+// 将当前工作目录作为容器的新根目录（pivot_root）
+// 实现文件系统的隔离。容器只能看到其根目录下的文件结构，无法访问宿主机的其他文件。
+// 防止容器逃逸到宿主机文件系统
+// 先绑定挂载自身目录（MountRoofs），确保子挂载点也被复制。
+// 创建 .pivot_root 临时目录用于过渡。
+// 使用 syscall.PivotRoot 将当前目录设为新的根目录。
+// 最后卸载旧的根并清理临时目录。
 func MountPivotRoot(root string) error {
 	// 挂载根文件系统
 	err := MountRoofs(root)
@@ -227,6 +238,8 @@ func MountPivotRoot(root string) error {
 
 // 该函数的作用是将一个 tmpfs 文件系统挂载到 /dev 目录。
 // tmpfs 是一种基于内存的临时文件系统，常用于需要快速读写且不需要持久化的场景
+// 容器需要基本的设备节点（如 /dev/null, /dev/zero 等）来运行程序。
+// 使用 tmpfs 可以动态生成这些设备节点，并且是临时的，重启后不会保留。
 func MountTmpfs() error {
 	moutflags := syscall.MS_NOSUID | syscall.MS_STRICTATIME
 	// 源设备 (source): 通常为 tmpfs，表示使用虚拟文件系统而非物理设备。
@@ -242,7 +255,7 @@ func MountTmpfs() error {
 	// 因为 tmpfs 是内存中的文件系统，其访问速度远高于磁盘。 更新 atime 带来的额外开销非常小，几乎不会影响性能。
 
 	// 数据字段 (data): "mode=755"，指定挂载的目录模式为 755（即 rwxr-xr-x）。
-	if err := syscall.Mount("tmpfs", "/dev", "tmpfs", moutflags, "mode=755"); err != nil {
+	if err := syscall.Mount("tmpfs", "/dev", "tmpfs", uintptr(moutflags), "mode=755"); err != nil {
 		logger.Error("Failed to mount tmpfs: ", err)
 		return err
 	}

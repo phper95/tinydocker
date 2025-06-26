@@ -48,6 +48,7 @@ var RunCommand = cli.Command{
 		enableTTY := ctx.Bool("it")
 		memoryLimit := ctx.String("m")
 		cpuLimit := ctx.String("cpus")
+		logger.Debug("enableTTY:", enableTTY, "memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit)
 		err := container.Run(args, enableTTY, memoryLimit, cpuLimit)
 		if err != nil {
 			logger.Error("Run container error:", err)

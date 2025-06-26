@@ -8,18 +8,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
 func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
-	cmd := args.Get(0)
-	argv := []string{"init", cmd}
-	logger.Debug("args is ", argv)
-	initCmd := exec.Command("/proc/self/exe", argv...)
+	logger.Debug("Run  args: ", args)
+	read, write, err := os.Pipe()
+	if err != nil {
+		logger.Error("Failed to create pipe error: ", err)
+		return err
+	}
+	initCmd := exec.Command("/proc/self/exe", "init")
+	initCmd.ExtraFiles = []*os.File{read}
 	// - CLONE_NEWUTS 设置新的 UTS namespace（允许设置主机名）
 	// - CLONE_NEWPID 设置新的 PID namespace（容器内看到的是独立的进程ID）
 	// - CLONE_NEWNS 设置新的 Mount namespace（允许挂载/卸载文件系统而不影响宿主机）
 	// - CLONE_NEWIPC 设置新的 IPC namespace（隔离进程间通信）
+	// 传入管道文件读取端句柄，外带此句柄去创建子进程
 
 	initCmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
@@ -64,12 +70,17 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	}
 
 	// 应用CGroup
-	err := cg.Apply(initCmd.Process.Pid)
+	err = cg.Apply(initCmd.Process.Pid)
 	if err != nil {
 		logger.Error("Failed to apply cgroup error: ", err)
 		return err
 	}
+	logger.Debug("Container process started with pid: ", initCmd.Process.Pid)
 
+	command := strings.Join(args, " ")
+	logger.Debug("command all is %s", command)
+	write.WriteString(command)
+	write.Close()
 	// 等待容器退出
 	return initCmd.Wait()
 

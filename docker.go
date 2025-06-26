@@ -6,6 +6,7 @@ import (
 	"github.com/phper95/tinydocker/enum"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
+	"log"
 	"os"
 )
 
@@ -13,9 +14,10 @@ func init() {
 	logger.SetLevel(logger.DEBUG)
 	logger.SetOutput(os.Stdout)
 	logger.SetIncludeTrace(true)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
-
 func main() {
+	logger.Debug("tinydocker start")
 	app := cli.NewApp()
 	app.Name = enum.AppName
 	app.Usage = "A simple container runtime"

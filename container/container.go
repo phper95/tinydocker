@@ -212,7 +212,7 @@ func MountPivotRoot(root string) error {
 
 	// 将当前进程的根文件系统切换到新的根目录 root
 	// 旧的根目录会被挂载到 pivotDir 上
-	if syscall.PivotRoot(root, pivotDir); err != nil {
+	if err = syscall.PivotRoot(root, pivotDir); err != nil {
 		logger.Error("Failed to pivot root: ", err)
 		return err
 	}
@@ -221,15 +221,15 @@ func MountPivotRoot(root string) error {
 		logger.Error("Failed to chdir: ", err)
 		return err
 	}
-	pivotDir = filepath.Join("/", ".pivot_root")
+	oldRoot := filepath.Join("/", ".pivot_root")
 	// 解除绑定挂载
 	// syscall.MNT_DETACH Linux 系统调用中用于卸载挂载点的一个标志，
 	// 其作用是将指定的挂载点从文件系统中分离（detach），而不影响其他引用该挂载点的位置。
-	if err = syscall.Unmount(pivotDir, syscall.MNT_DETACH); err != nil {
+	if err = syscall.Unmount(oldRoot, syscall.MNT_DETACH); err != nil {
 		logger.Error("Failed to unmount pivot dir: ", err)
 		return err
 	}
-	if err = os.Remove(pivotDir); err != nil {
+	if err = os.Remove(oldRoot); err != nil {
 		logger.Error("Failed to remove pivot dir: ", err)
 		return err
 	}

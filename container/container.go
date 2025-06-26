@@ -1,7 +1,6 @@
 package container
 
 import (
-	"fmt"
 	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/enum"
 	"github.com/phper95/tinydocker/pkg/logger"
@@ -76,20 +75,6 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 
 }
 
-// GenerateCPULimit 根据指定的 CPU 使用百分比和周期生成 "quota period" 字符串
-// 例如：percent=10, period=100000 微秒（100ms） => 返回 "10000 100000"
-func GenerateCPULimit(percent int, period uint64) (string, error) {
-	if percent < 0 || percent > 100 {
-		return "", fmt.Errorf("percent must be between 0 and 100")
-	}
-	if period == 0 {
-		period = 100000 // 默认使用 100ms 周期
-	}
-
-	quota := (int64(percent) * int64(period)) / 100
-	return fmt.Sprintf("%d %d", quota, period), nil
-}
-
 func Mount() {
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -97,8 +82,8 @@ func Mount() {
 		return
 	}
 	logger.Debug("Current location is %s", pwd)
-	MountProc()
 	MountPivotRoot(pwd)
+	MountProc()
 	MountTmpfs()
 }
 
@@ -179,9 +164,14 @@ func MountRoofs(root string) error {
 
 	// MS_REC启用递归挂载，将当前挂载点下的所有子挂载点也进行绑定。
 	// 让容器内部看到的挂载结构与宿主机一致。
-	moutflags := syscall.MS_BIND | syscall.MS_REC
+	moutflags := syscall.MS_BIND | syscall.MS_REC | syscall.MS_PRIVATE
 	if err := syscall.Mount(root, root, "bind", uintptr(moutflags), ""); err != nil {
 		logger.Error("Failed to mount rootfs: ", err)
+		return err
+	}
+	// 强制 remount 成 private，防止传播到宿主机
+	if err := syscall.Mount("", root, "", uintptr(syscall.MS_PRIVATE|syscall.MS_REMOUNT), ""); err != nil {
+		logger.Warn("Failed to remount root as private: %v", err)
 		return err
 	}
 	return nil
@@ -205,6 +195,15 @@ func MountPivotRoot(root string) error {
 	// 创建一个临时目录 .pivot_root，用于在切换根目录时作为旧根的挂载点
 	// .开头对用户隐藏，防止用户误操作
 	pivotDir := filepath.Join(root, ".pivot_root")
+	logger.Debug("pivotDir is", pivotDir, " root is ", root)
+	// 如果 .pivot_root 目录已存在，则先删除它
+	if _, err := os.Stat(pivotDir); err == nil {
+		if err := os.Remove(pivotDir); err != nil {
+			logger.Error("Failed to remove existing pivot dir: ", err)
+			return err
+		}
+	}
+
 	if err = os.Mkdir(pivotDir, 0755); err != nil {
 		logger.Error("Failed to create pivot dir: ", err)
 		return err

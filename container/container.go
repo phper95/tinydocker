@@ -18,15 +18,20 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	if len(initCmdArgs) > 0 {
 		initCmdArgs = append(initCmdArgs, args...)
 	}
-	initCmd := exec.Command("/proc/self/exe", initCmdArgs...)
 
+	initCmd, err := NewInitProcess(initCmdArgs, enableTTY, memoryLimit, cpuLimit)
+	if err != nil {
+		logger.Error("Failed to create init process error: ", err)
+		return err
+	}
 	logger.Debug("Container process started with pid: ", initCmd.Process.Pid)
 	// 等待容器退出
 	return initCmd.Wait()
 
 }
 
-func NewInitProcess(initCmd *exec.Cmd, ) (*exec.Cmd, error) {
+func NewInitProcess(initCmdArgs []string, enableTTY bool, memoryLimit, cpuLimit string) (*exec.Cmd, error) {
+	initCmd := exec.Command("/proc/self/exe", initCmdArgs...)
 	// - CLONE_NEWUTS 设置新的 UTS namespace（允许设置主机名）
 	// - CLONE_NEWPID 设置新的 PID namespace（容器内看到的是独立的进程ID）
 	// - CLONE_NEWNS 设置新的 Mount namespace（允许挂载/卸载文件系统而不影响宿主机）
@@ -49,7 +54,7 @@ func NewInitProcess(initCmd *exec.Cmd, ) (*exec.Cmd, error) {
 
 	if err := initCmd.Start(); err != nil {
 		logger.Error("Failed to start container process error: ", err)
-		return err
+		return initCmd, err
 	}
 
 	// 创建CGroup
@@ -60,7 +65,7 @@ func NewInitProcess(initCmd *exec.Cmd, ) (*exec.Cmd, error) {
 		err := cg.SetMemoryLimit(memoryLimit)
 		if err != nil {
 			logger.Error("Failed to set memory limit error: ", err)
-			return err
+			return initCmd, err
 		}
 
 	}
@@ -70,7 +75,7 @@ func NewInitProcess(initCmd *exec.Cmd, ) (*exec.Cmd, error) {
 		err := cg.SetCPULimit(cpuLimit) // 限制CPU为50%
 		if err != nil {
 			logger.Error("Failed to set cpu limit error: ", err)
-			return err
+			return initCmd, err
 		}
 
 	}
@@ -79,6 +84,9 @@ func NewInitProcess(initCmd *exec.Cmd, ) (*exec.Cmd, error) {
 	err := cg.Apply(initCmd.Process.Pid)
 	if err != nil {
 		logger.Error("Failed to apply cgroup error: ", err)
-		return err
+		return initCmd, err
 	}
+
+	logger.Debug("NewInitProcess Container process started with pid: ", initCmd.Process.Pid)
+	return initCmd, nil
 }

@@ -28,9 +28,13 @@ func main() {
 	}
 
 	app.After = func(context *cli.Context) error {
-		return filesys.MountProc()
+		err := filesys.MountProc()
+		if err != nil {
+			logger.Error("Failed to mount proc: ", err)
+			return err
+		}
+		return nil
 	}
-
 	// 使用 cli.Run 执行命令
 	if err := app.Run(os.Args); err != nil {
 		logger.Error("app run error", err)

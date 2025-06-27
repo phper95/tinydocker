@@ -1,12 +1,9 @@
 package container
 
 import (
-	"fmt"
+	"github.com/phper95/tinydocker/filesys"
 	"github.com/phper95/tinydocker/pkg/logger"
-	"io"
 	"os"
-	"os/exec"
-	"strings"
 	"syscall"
 )
 
@@ -17,55 +14,18 @@ func init() {
 }
 
 func InitContainerProcess(cmd string) error {
-	cmdArray := readUserCommand()
-	if cmdArray == nil || len(cmdArray) == 0 {
-		return fmt.Errorf("run container get user command error, cmdArray is nil")
-	}
-	logger.Debug("InitContainerProcess user cmd: ", cmdArray)
-	// err := Mount()
-	// if err != nil {
-	// 	logger.Error("Mount error ", err)
-	// 	return err
-	// }
 	argv := []string{cmd}
 	logger.Debug("InitContainerProcess user cmd: ", cmd, " argv: ", argv)
-
-	// 在系统的PATH中寻找命令的绝对路径
-	path, err := exec.LookPath(cmdArray[0])
+	err := filesys.MountProc()
 	if err != nil {
-		logger.Error("exec look path error %v", err)
+		logger.Error("Failed to mount proc: ", err)
 		return err
 	}
-
-	logger.Debug("look path ", path)
-
 	// init进程读取了父进程传递过来的参数，在子进程内执行，完成了将用户指定命令传递给子进程的操作
-	// err = syscall.Exec(cmd, argv, os.Environ())
-	// if err != nil {
-	// 	logger.Error("Failed to exec command: ", err)
-	// }
-	err = syscall.Exec(path, cmdArray[0:], os.Environ())
+	err = syscall.Exec(cmd, argv, os.Environ())
 	if err != nil {
-		logger.Error("exec error ", err)
-		return err
+		logger.Error("Failed to exec command: ", err)
 	}
+
 	return nil
-}
-
-func readUserCommand() []string {
-	// 0-stdin
-	// 1-stdout
-	// 2-stderr
-	// 3-pipe
-	pipe := os.NewFile(uintptr(3), "pipe")
-
-	// block read
-	msg, err := io.ReadAll(pipe)
-	if err != nil {
-		logger.Error("init read pipe error %v", err)
-		return nil
-	}
-
-	msgStr := string(msg)
-	return strings.Split(msgStr, " ")
 }

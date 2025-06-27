@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/phper95/tinydocker/commands"
 	"github.com/phper95/tinydocker/enum"
+	"github.com/phper95/tinydocker/filesys"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
 	"log"
@@ -24,6 +25,10 @@ func main() {
 	app.Commands = []cli.Command{
 		commands.InitCommand,
 		commands.RunCommand,
+	}
+
+	app.After = func(context *cli.Context) error {
+		return filesys.MountProc()
 	}
 
 	// 使用 cli.Run 执行命令

@@ -9,6 +9,10 @@ import (
 )
 
 /**
+内存限制
+docker run --memory="512m" --memory-swap="1g" my_image
+
+CPU 资源限制
 docker run -d --cpu-period=100000 --cpu-quota=250000 my_container
 -cpu-period：调度周期（单位：微秒），默认 100000。
 --cpu-quota：每个周期内可使用的最大 CPU 时间（单位：微秒）。

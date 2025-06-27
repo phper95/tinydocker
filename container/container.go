@@ -19,7 +19,11 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 		logger.Error("Failed to create pipe error: ", err)
 		return err
 	}
-	initCmd := exec.Command("/proc/self/exe", "init")
+	initCmdArgs := []string{"init"}
+	if len(initCmdArgs) > 0 {
+		initCmdArgs = append(initCmdArgs, args...)
+	}
+	initCmd := exec.Command("/proc/self/exe", initCmdArgs...)
 	initCmd.ExtraFiles = []*os.File{read}
 	// - CLONE_NEWUTS 设置新的 UTS namespace（允许设置主机名）
 	// - CLONE_NEWPID 设置新的 PID namespace（容器内看到的是独立的进程ID）

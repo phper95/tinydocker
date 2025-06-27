@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/phper95/tinydocker/commands"
-	"github.com/phper95/tinydocker/container"
 	"github.com/phper95/tinydocker/enum"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
@@ -27,9 +26,6 @@ func main() {
 		commands.RunCommand,
 	}
 
-	app.After = func(context *cli.Context) error {
-		return container.MountProc()
-	}
 	// 使用 cli.Run 执行命令
 	if err := app.Run(os.Args); err != nil {
 		logger.Error("app run error", err)

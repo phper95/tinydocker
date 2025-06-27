@@ -7,24 +7,26 @@ import (
 	"github.com/urfave/cli"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 )
 
 func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	logger.Debug("Run  args: ", args)
-	read, write, err := os.Pipe()
-	if err != nil {
-		logger.Error("Failed to create pipe error: ", err)
-		return err
-	}
+
 	initCmdArgs := []string{"init"}
 	// 将Run命令的参数传递给init命令
 	if len(initCmdArgs) > 0 {
 		initCmdArgs = append(initCmdArgs, args...)
 	}
 	initCmd := exec.Command("/proc/self/exe", initCmdArgs...)
-	initCmd.ExtraFiles = []*os.File{read}
+
+	logger.Debug("Container process started with pid: ", initCmd.Process.Pid)
+	// 等待容器退出
+	return initCmd.Wait()
+
+}
+
+func NewInitProcess(initCmd *exec.Cmd, ) (*exec.Cmd, error) {
 	// - CLONE_NEWUTS 设置新的 UTS namespace（允许设置主机名）
 	// - CLONE_NEWPID 设置新的 PID namespace（容器内看到的是独立的进程ID）
 	// - CLONE_NEWNS 设置新的 Mount namespace（允许挂载/卸载文件系统而不影响宿主机）
@@ -74,18 +76,9 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	}
 
 	// 应用CGroup
-	err = cg.Apply(initCmd.Process.Pid)
+	err := cg.Apply(initCmd.Process.Pid)
 	if err != nil {
 		logger.Error("Failed to apply cgroup error: ", err)
 		return err
 	}
-	logger.Debug("Container process started with pid: ", initCmd.Process.Pid)
-
-	command := strings.Join(args, " ")
-	logger.Debug("command all is %s", command)
-	write.WriteString(command)
-	write.Close()
-	// 等待容器退出
-	return initCmd.Wait()
-
 }

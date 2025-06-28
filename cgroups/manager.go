@@ -55,9 +55,9 @@ docker中cgroup默认路径： /sys/fs/cgroup/system.slice/docker-<container-id>
 */
 
 const (
-	MemoryMax   = "memory.max"   // 内存限制配置文件，用于设置cgroup的内存上限
-	CpuMax      = "cpu.max"      // CPU限制配置文件，用于设置cgroup的CPU使用上限
-	CgroupProcs = "cgroup.procs" // cgroup进程列表文件，用于将进程加入指定的cgroup
+	MemoryMax   = "memory.max"     // 内存限制配置文件，用于设置cgroup的内存上限
+	CpuMax      = "cpu.max"        // CPU限制配置文件，用于设置cgroup的CPU使用上限
+	CgroupProcs = "cgroup.procs"   // cgroup进程列表文件，用于将进程加入指定的cgroup
 	CgroupRoot  = "/sys/fs/cgroup" // cgroup挂载根目录，是Linux系统中管理控制组的默认路径
 )
 
@@ -76,6 +76,9 @@ type CGroupManager struct {
 // 注意:
 //     1. 如果指定的 cgroup 路径不存在，则会尝试创建该路径
 //     2. 如果创建路径失败，则会记录错误日志并退出程序
+
+var cgroupManagers = make([]CGroupManager, 0, 0)
+
 func NewCGroupManager(name string) *CGroupManager {
 	// 拼接cgroup路径
 	cgroupPath := filepath.Join(CgroupRoot, name)
@@ -92,17 +95,20 @@ func NewCGroupManager(name string) *CGroupManager {
 	}
 
 	// 返回CGroupManager对象
-	return &CGroupManager{path: cgroupPath}
+	cgroupManager := CGroupManager{path: cgroupPath}
+	cgroupManagers = append(cgroupManagers, cgroupManager)
+	return &cgroupManager
 }
-
 
 // Apply 将给定的进程ID（pid）加入到 cgroup 中。
 //
 // 参数：
-//     pid：要加入 cgroup 的进程ID。
+//
+//	pid：要加入 cgroup 的进程ID。
 //
 // 返回值：
-//     如果成功，则返回 nil；否则返回错误信息。
+//
+//	如果成功，则返回 nil；否则返回错误信息。
 func (c *CGroupManager) Apply(pid int) error {
 	// 将 pid 转换为字符串
 	pidStr := strconv.Itoa(pid)
@@ -118,14 +124,15 @@ func (c *CGroupManager) Apply(pid int) error {
 	return nil
 }
 
-
 // SetMemoryLimit 为CGroup设置内存限制
 //
 // 参数:
-//     memoryLimit: 设置的内存限制值
+//
+//	memoryLimit: 设置的内存限制值
 //
 // 返回值:
-//     如果设置成功，返回nil；如果设置失败，返回错误信息
+//
+//	如果设置成功，返回nil；如果设置失败，返回错误信息
 func (c *CGroupManager) SetMemoryLimit(memoryLimit string) error {
 	// 拼接路径
 	memPath := filepath.Join(c.path, MemoryMax)
@@ -146,7 +153,6 @@ func (c *CGroupManager) SetMemoryLimit(memoryLimit string) error {
 		// 返回错误
 		return err
 	}
-
 
 	return nil
 }
@@ -179,33 +185,36 @@ func (c *CGroupManager) SetCPULimit(cpusStr string) error {
 	return nil
 }
 
-
 // Cleanup 删除由c.path指定的目录及其所有子目录和文件。
 // 如果删除过程中发生错误，会记录错误日志并返回错误。
 // 如果没有错误发生，则返回nil。
-func (c *CGroupManager) Cleanup() error {
+func Cleanup() error {
 	// 删除c.path指定的目录及其所有子目录和文件
-	err := os.RemoveAll(c.path)
-	if err != nil {
-		// 记录错误日志
-		logger.Error("Error cleaning up cgroup: %v", err)
-		// 返回错误
-		return err
+	for _, c := range cgroupManagers {
+		err := os.RemoveAll(c.path)
+		if err != nil {
+			// 记录错误日志
+			logger.Error("Error cleaning up cgroup: %v", err)
+			// 返回错误
+			continue
+		}
 	}
+
 	return nil
 }
-
 
 // ParseCPUs 将 --cpus 字符串解析为 quota 和 period
 // ParseCPUs 解析字符串形式的CPU值，并返回CPU配额（quota）和周期（period）
 //
 // 参数：
-//   cpusStr: string类型，代表CPU值的字符串，支持浮点数输入，例如 "1.5"
+//
+//	cpusStr: string类型，代表CPU值的字符串，支持浮点数输入，例如 "1.5"
 //
 // 返回值：
-//   int: 返回计算出的CPU配额（quota）
-//   int: 返回周期（period），固定为100ms（即100000微秒）
-//   error: 返回解析过程中可能发生的错误，如果解析成功，则返回nil
+//
+//	int: 返回计算出的CPU配额（quota）
+//	int: 返回周期（period），固定为100ms（即100000微秒）
+//	error: 返回解析过程中可能发生的错误，如果解析成功，则返回nil
 func ParseCPUs(cpusStr string) (int, int, error) {
 	// 支持浮点数输入，例如 "1.5"
 	cpusFloat, err := strconv.ParseFloat(cpusStr, 64)
@@ -214,18 +223,15 @@ func ParseCPUs(cpusStr string) (int, int, error) {
 		return 0, 0, fmt.Errorf("invalid cpus value: %s", cpusStr)
 	}
 
-
 	if cpusFloat <= 0 {
 		// 如果输入的CPU值小于等于0，返回错误信息
 		return 0, 0, fmt.Errorf("cpus must be greater than 0")
 	}
 
-
 	// 固定周期为 100ms（CGroups 推荐值）
 	const period = 100000 // microseconds
 	// 计算quota值
 	quota := int(cpusFloat * float64(period))
-
 
 	// 防止溢出或非法值
 	if quota <= 0 {
@@ -233,7 +239,5 @@ func ParseCPUs(cpusStr string) (int, int, error) {
 		return 0, 0, fmt.Errorf("calculated quota is invalid: %d", quota)
 	}
 
-
 	return quota, period, nil
 }
-

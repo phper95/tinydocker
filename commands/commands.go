@@ -12,9 +12,9 @@ var InitCommand = cli.Command{
 	Usage: "Init container process run user's process in container. Do not call it outside",
 	Action: func(ctx *cli.Context) error {
 		logger.Debug("init command args:", ctx.Args())
-		cmd := ctx.Args().Get(0)
-		logger.Debug("init command:", cmd)
-		return container.InitContainerProcess(cmd)
+		// cmd := ctx.Args().Get(0)
+		// logger.Debug("init command:", cmd)
+		return container.InitContainerProcess()
 	},
 }
 var RunCommand = cli.Command{

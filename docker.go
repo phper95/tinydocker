@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/commands"
 	"github.com/phper95/tinydocker/enum"
 	"github.com/phper95/tinydocker/filesys"
@@ -33,6 +34,8 @@ func main() {
 			logger.Error("Failed to mount proc: ", err)
 			return err
 		}
+		cgroups.Cleanup()
+
 		return nil
 	}
 	// 使用 cli.Run 执行命令

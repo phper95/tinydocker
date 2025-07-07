@@ -4,7 +4,6 @@ import (
 	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/commands"
 	"github.com/phper95/tinydocker/enum"
-	"github.com/phper95/tinydocker/filesys"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
 	"log"
@@ -29,14 +28,12 @@ func main() {
 	}
 
 	app.After = func(context *cli.Context) error {
-		err := filesys.MountProc()
-		if err != nil {
-			logger.Error("Failed to mount proc: ", err)
-			return err
-		}
-		cgroups.Cleanup()
-
-		return nil
+		// err := filesys.MountProc()
+		// if err != nil {
+		// 	logger.Error("Failed to mount proc: ", err)
+		// 	return err
+		// }
+		return cgroups.Cleanup()
 	}
 	// 使用 cli.Run 执行命令
 	if err := app.Run(os.Args); err != nil {

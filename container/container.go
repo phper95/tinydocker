@@ -66,6 +66,8 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit string) (*exec.Cmd, *o
 	// 传入管道文件读取端句柄，外带此句柄去创建子进程
 	initCmd.ExtraFiles = []*os.File{read}
 
+	// 设置工作目录
+	initCmd.Dir = "/var/local/busybox"
 	// 设置交互模式
 	if enableTTY {
 		initCmd.Stdout = os.Stdout

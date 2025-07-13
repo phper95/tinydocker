@@ -39,7 +39,7 @@ func InitContainerProcess() error {
 		return errors.New("InitContainerProcess user cmd is empty")
 	}
 	logger.Debug("InitContainerProcess user cmd: ", cmdArgs)
-	err = filesys.MountProc()
+	err = filesys.Mount()
 	if err != nil {
 		logger.Error("Failed to mount proc: ", err)
 		return err

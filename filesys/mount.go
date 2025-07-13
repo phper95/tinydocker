@@ -1,10 +1,11 @@
 package filesys
 
 import (
-	"github.com/phper95/tinydocker/pkg/logger"
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/phper95/tinydocker/pkg/logger"
 )
 
 func Mount() error {
@@ -99,7 +100,7 @@ func MountRoofs(root string) error {
 	// 挂载自身 + 启用 MS_REC 标志后，会复制所有子挂载点；
 	// 这样容器后续调用 pivot_root 切换根目录时，就能看到完整的、独立的文件系统结构（包括 /proc, /sys 等子挂载）；
 	// 并且这些挂载操作不会影响宿主机或其他容器。
-
+	// MS_PRIVATE 表示将挂载点设为私有类型，意味着在该命名空间中挂载或卸载不会影响其他命名空间。
 	// 默认情况下，挂载点可能是 shared 类型，意味着在一个命名空间中挂载或卸载会影响其他命名空间。
 	// 通过绑定挂载自身：
 	// 实际上创建了一个“私有副本”；

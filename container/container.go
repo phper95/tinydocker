@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/enum"
+	"github.com/phper95/tinydocker/filesys"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
 	"os"
@@ -65,9 +66,15 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit string) (*exec.Cmd, *o
 
 	// 传入管道文件读取端句柄，外带此句柄去创建子进程
 	initCmd.ExtraFiles = []*os.File{read}
-
+	rootDir := "/var/local/busybox"
+	mountPoint := "/mnt/overlay"
+	err = filesys.CreateOverlayFS(rootDir, mountPoint, "busybox-rootfs.tar")
+	if err != nil {
+		logger.Error("Failed to create overlayfs error: ", err)
+		return nil, nil, err
+	}
 	// 设置工作目录
-	initCmd.Dir = "/var/local/busybox"
+	initCmd.Dir = mountPoint
 	// 设置交互模式
 	if enableTTY {
 		initCmd.Stdout = os.Stdout

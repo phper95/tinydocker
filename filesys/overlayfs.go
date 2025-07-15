@@ -26,12 +26,10 @@ func CreateOverlayFS(busyboxDir, mountPoint, tarPath string) error {
 		return err
 	}
 
-	// 解压 busybox-rootfs.tar 到 /var/local/busybox
-	if !file.IsDir(busyboxDir) {
-		if err := file.ExtractTarGz(tarPath, busyboxDir); err != nil {
-			logger.Error("failed to extract %s to %s: %v", tarPath, busyboxDir, err)
-			return err
-		}
+	// 解压 busybox-rootfs.tar.gz 到 /var/local/busybox
+	if err := file.ExtractTarGz(tarPath, busyboxDir); err != nil {
+		logger.Error("failed to extract %s to %s: %v", tarPath, busyboxDir, err)
+		return err
 	}
 
 	// 挂载 OverlayFS

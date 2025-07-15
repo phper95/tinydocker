@@ -68,7 +68,8 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit string) (*exec.Cmd, *o
 	initCmd.ExtraFiles = []*os.File{read}
 	rootDir := "/var/local/busybox"
 	mountPoint := "/mnt/overlay"
-	err = filesys.CreateOverlayFS(rootDir, mountPoint, "busybox-rootfs.tar")
+	tarPath := "busybox-rootfs.tar.gz"
+	err = filesys.CreateOverlayFS(rootDir, mountPoint, tarPath)
 	if err != nil {
 		logger.Error("Failed to create overlayfs error: ", err)
 		return nil, nil, err

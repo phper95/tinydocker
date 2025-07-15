@@ -2,14 +2,29 @@ package filesys
 
 import (
 	"fmt"
-	"github.com/phper95/tinydocker/pkg/file"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"os"
+	"os/exec"
 	"path"
 	"syscall"
 )
 
 func CreateOverlayFS(busyboxDir, mountPoint, tarPath string) error {
+	// 解压 busybox-rootfs.tar.gz 到 /var/local/busybox
+	// 判断busyboxDir文件夹是否存在，不存在则创建文件夹
+	if _, err := os.Stat(busyboxDir); os.IsNotExist(err) {
+		err := os.MkdirAll(busyboxDir, 0755)
+		if err != nil {
+			logger.Error("failed to create %s: %v", busyboxDir, err)
+			return err
+		}
+		output, err := exec.Command("tar", "-xvf", tarPath, "-C", busyboxDir).CombinedOutput()
+		if err != nil {
+			logger.Error("failed to extract %s: err %v output %s", tarPath, err, string(output))
+			return err
+		}
+	}
+
 	// 设置 OverlayFS 相关文件夹
 	lowerDir := busyboxDir
 	upperDir := path.Join(path.Dir(busyboxDir), "upper")
@@ -23,12 +38,6 @@ func CreateOverlayFS(busyboxDir, mountPoint, tarPath string) error {
 	err = os.MkdirAll(workDir, 0755)
 	if err != nil {
 		logger.Error("failed to create %s: %v", workDir, err)
-		return err
-	}
-
-	// 解压 busybox-rootfs.tar.gz 到 /var/local/busybox
-	if err := file.ExtractTarGz(tarPath, busyboxDir); err != nil {
-		logger.Error("failed to extract %s to %s: %v", tarPath, busyboxDir, err)
 		return err
 	}
 

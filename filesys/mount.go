@@ -208,3 +208,40 @@ func MountTmpfs() error {
 	}
 	return nil
 }
+
+// 为什么要remount？
+/**
+在Linux中，bind mount操作实际上分为两个阶段：
+// 第一阶段：建立绑定关系
+syscall.Mount(volume.HostPath, volume.ContainerPath, "", uintptr(syscall.MS_BIND), "")
+
+// 第二阶段：修改挂载属性
+syscall.Mount("", volume.ContainerPath, "", uintptr(syscall.MS_REMOUNT|syscall.MS_RDONLY|syscall.MS_BIND), "")
+
+第一阶段的限制：
+MS_BIND 操作的主要目的是建立源路径和目标路径之间的绑定关系
+在这个阶段，内核主要关注的是文件系统的拓扑结构，而不是访问权限
+如果同时指定 MS_BIND | MS_RDONLY，MS_RDONLY 标志通常会被忽略
+第二阶段的必要性：
+MS_REMOUNT 操作专门用于修改已存在挂载点的属性
+此时绑定关系已经建立，可以安全地修改访问权限等属性
+MS_RDONLY 标志在remount操作中能够正确生效
+3. 内核层面的原因
+
+*/
+
+// 为什么要使用绑定挂载？
+/**
+普通挂载：通过文件系统驱动程序读取存储设备（如硬盘、网络存储）上的数据结构，并将其映射为用户可见的目录树。
+绑定挂载：直接在 VFS（虚拟文件系统）层创建一个新的挂载点，指向已存在的文件或目录，不涉及底层文件系统的解析。
+//绑定挂载是Linux内核提供的特殊机制，它可以：
+//1. 可以实现跨文件系统的数据共享，是容器技术实现自身文件系统的基础。
+//2.零拷贝开销
+// 不复制数据，只是建立新的路径映射
+// 访问速度与直接访问原文件相同
+*/
+
+func MountUserVolumes() error {
+
+	return nil
+}

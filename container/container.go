@@ -2,18 +2,25 @@ package container
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"syscall"
+
 	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/enum"
 	"github.com/phper95/tinydocker/filesys"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
-	"os"
-	"os/exec"
-	"strings"
-	"syscall"
 )
 
-func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
+// Paths used across container lifecycle for overlayfs and volume handling.
+const (
+	BusyboxRoot = "/var/local/busybox"
+	MountPoint  = "/mnt/overlay"
+)
+
+func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit, volume string) error {
 	logger.Debug("Run  args: ", args)
 
 	// initCmdArgs := []string{"init"}
@@ -22,7 +29,7 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	// 	initCmdArgs = append(initCmdArgs, args...)
 	// }
 
-	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit)
+	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit, volume)
 	if err != nil {
 		logger.Error("Failed to create init process error: ", err)
 		return err
@@ -37,13 +44,23 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit string) error {
 	}
 	// 等待容器退出
 	if enableTTY {
-		return initCmd.Wait()
+		// Wait for container process to finish when attached.
+		waitErr := initCmd.Wait()
+
+		// Cleanup resources (volume and overlayfs).
+		if err := filesys.UnmountVolume(volume, MountPoint); err != nil {
+			logger.Error("Failed to unmount volume: ", err)
+		}
+		if err := filesys.UnmountOverlayFS(BusyboxRoot, MountPoint); err != nil {
+			logger.Error("Failed to unmount overlayfs: ", err)
+		}
+		return waitErr
 	}
 	return nil
 
 }
 
-func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit string) (*exec.Cmd, *os.File, error) {
+func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string) (*exec.Cmd, *os.File, error) {
 
 	read, write, err := os.Pipe()
 	if err != nil {
@@ -66,16 +83,22 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit string) (*exec.Cmd, *o
 
 	// 传入管道文件读取端句柄，外带此句柄去创建子进程
 	initCmd.ExtraFiles = []*os.File{read}
-	rootDir := "/var/local/busybox"
-	mountPoint := "/mnt/overlay"
 	tarPath := "/var/local/busybox-rootfs.tar"
-	err = filesys.CreateOverlayFS(rootDir, mountPoint, tarPath)
+
+	// Create and mount overlayfs.
+	err = filesys.CreateOverlayFS(BusyboxRoot, MountPoint, tarPath)
 	if err != nil {
 		logger.Error("Failed to create overlayfs error: ", err)
 		return nil, nil, err
 	}
+
+	// Mount data volume if specified.
+	if err := filesys.MountVolume(volume, MountPoint); err != nil {
+		logger.Error("Failed to mount volume: ", err)
+		return nil, nil, err
+	}
 	// 设置工作目录
-	initCmd.Dir = mountPoint
+	initCmd.Dir = MountPoint
 	// 设置交互模式
 	if enableTTY {
 		initCmd.Stdout = os.Stdout

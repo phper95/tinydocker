@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+
 	"github.com/phper95/tinydocker/container"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
@@ -35,6 +36,10 @@ var RunCommand = cli.Command{
 			Name:  "cpus",
 			Usage: "CPU limit for the container (e.g., 1.5)",
 		},
+		&cli.StringFlag{
+			Name:  "v",
+			Usage: "Bind mount a volume (host_dir:container_dir)",
+		},
 	},
 	Action: func(ctx *cli.Context) error {
 		// 获取命令参数列表
@@ -48,8 +53,9 @@ var RunCommand = cli.Command{
 		enableTTY := ctx.Bool("it")
 		memoryLimit := ctx.String("m")
 		cpuLimit := ctx.String("cpus")
-		logger.Debug("enableTTY:", enableTTY, "memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit)
-		err := container.Run(args, enableTTY, memoryLimit, cpuLimit)
+		volume := ctx.String("v")
+		logger.Debug("enableTTY:", enableTTY, "memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume)
+		err := container.Run(args, enableTTY, memoryLimit, cpuLimit, volume)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}

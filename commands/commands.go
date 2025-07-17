@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/phper95/tinydocker/container"
+	"github.com/phper95/tinydocker/image"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/urfave/cli"
 )
@@ -60,5 +61,22 @@ var RunCommand = cli.Command{
 			logger.Error("Run container error:", err)
 		}
 		return err
+	},
+}
+
+// docker commit imageName
+var CommitCommand = cli.Command{
+	Name:  "commit",
+	Usage: "Package the current running container into a tar file (docker commit <imageName>)",
+	Action: func(ctx *cli.Context) error {
+		if ctx.NArg() < 1 {
+			return errors.New("image name required, e.g. tinydocker commit myimg")
+		}
+		img := ctx.Args().Get(0)
+		if err := image.Commit(img); err != nil {
+			logger.Error("commit failed: ", err)
+			return err
+		}
+		return nil
 	},
 }

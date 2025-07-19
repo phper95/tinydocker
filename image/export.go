@@ -10,9 +10,9 @@ import (
 	"github.com/phper95/tinydocker/pkg/logger"
 )
 
-// Commit 将正在运行的容器文件系统打成 tar 包
+// Export 将正在运行的容器文件系统打成 tar 包
 // imageName 为生成镜像的文件名前缀，例如 test -> test.tar
-func Commit(imageName string) error {
+func Export(imageName string) error {
 	if imageName == "" {
 		return fmt.Errorf("image name cannot be empty")
 	}

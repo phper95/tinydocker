@@ -64,17 +64,23 @@ var RunCommand = cli.Command{
 	},
 }
 
-// docker commit imageName
-var CommitCommand = cli.Command{
+// docker export imageName
+var ExportCommand = cli.Command{
 	Name:  "export",
-	Usage: "Package the current running container into a tar file (docker export <imageName>)",
+	Usage: "Package the current running container into a tar file (docker export -o <tarfile> <imageName>)",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "o",
+			Usage: "Output file name for the tar file (default is container.tar)",
+		},
+	},
 	Action: func(ctx *cli.Context) error {
-		if ctx.NArg() < 1 {
-			return errors.New("image name required, e.g. tinydocker commit myimg")
+		output := ctx.String("o")
+		if output == "" {
+			output = "container.tar"
 		}
-		img := ctx.Args().Get(0)
-		if err := image.Export(img); err != nil {
-			logger.Error("commit failed: ", err)
+		if err := image.Export(output); err != nil {
+			logger.Error("export error: ", err)
 			return err
 		}
 		return nil

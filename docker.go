@@ -26,7 +26,7 @@ func main() {
 	app.Commands = []cli.Command{
 		commands.InitCommand,
 		commands.RunCommand,
-		commands.CommitCommand,
+		commands.ExportCommand,
 	}
 
 	app.After = func(context *cli.Context) error {

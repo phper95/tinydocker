@@ -35,6 +35,6 @@ func Export(imageName string) error {
 		return fmt.Errorf("tar error: %w, output: %s", err, string(output))
 	}
 
-	logger.Info("container committed to %s", dstTar)
+	logger.Info("container exported to %s", dstTar)
 	return nil
 }

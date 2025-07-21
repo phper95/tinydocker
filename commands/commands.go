@@ -29,6 +29,10 @@ var RunCommand = cli.Command{
 			Name:  "it",
 			Usage: "Interactive mode with pseudo-TTY",
 		},
+		&cli.BoolFlag{
+			Name:  "d",
+			Usage: "Run container in detached mode (background)",
+		},
 		&cli.StringFlag{
 			Name:  "m",
 			Usage: "Memory limit for the container (e.g., 512m, 1g)",
@@ -52,11 +56,19 @@ var RunCommand = cli.Command{
 			return errors.New("No command specified")
 		}
 		enableTTY := ctx.Bool("it")
+		detach := ctx.Bool("d")
+
+		if enableTTY && detach {
+			logger.Error("-it and -d cannot be used together")
+			return errors.New("-it and -d cannot be used together")
+		}
+
 		memoryLimit := ctx.String("m")
 		cpuLimit := ctx.String("cpus")
 		volume := ctx.String("v")
-		logger.Debug("enableTTY:", enableTTY, "memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume)
-		err := container.Run(args, enableTTY, memoryLimit, cpuLimit, volume)
+		logger.Debug("enableTTY:", enableTTY, "detach:", detach,
+			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume)
+		err := container.Run(args, enableTTY, detach, memoryLimit, cpuLimit, volume)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}

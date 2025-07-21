@@ -20,7 +20,8 @@ const (
 	MountPoint  = "/mnt/overlay"
 )
 
-func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit, volume string) error {
+func Run(args cli.Args, enableTTY bool, detach bool,
+	memoryLimit, cpuLimit, volume string) error {
 	logger.Debug("Run  args: ", args)
 
 	// initCmdArgs := []string{"init"}
@@ -42,22 +43,43 @@ func Run(args cli.Args, enableTTY bool, memoryLimit, cpuLimit, volume string) er
 		logger.Error("Failed to send init command error: ", err)
 		return err
 	}
-	// 等待容器退出
-	if enableTTY {
-		// Wait for container process to finish when attached.
-		waitErr := initCmd.Wait()
 
-		// Cleanup resources (volume and overlayfs).
-		if err := filesys.UnmountVolume(volume, MountPoint); err != nil {
-			logger.Error("Failed to unmount volume: ", err)
-		}
-		if err := filesys.UnmountOverlayFS(BusyboxRoot, MountPoint); err != nil {
-			logger.Error("Failed to unmount overlayfs: ", err)
-		}
+	// 等待/托管容器进程
+	if enableTTY { // 前台交互
+		waitErr := initCmd.Wait()
+		cleanup(volume)
 		return waitErr
 	}
-	return nil
 
+	if detach { // 后台运行
+		go func() {
+			if err := initCmd.Wait(); err != nil {
+				logger.Warn("background container exited: %v", err)
+			}
+			cleanup(volume)
+		}()
+		logger.Info("Container running in background with pid: %d", initCmd.Process.Pid)
+		return nil
+	}
+
+	// 非交互但前台阻塞
+	waitErr := initCmd.Wait()
+	cleanup(volume)
+	return waitErr
+}
+
+// 资源清理封装
+func cleanup(volume string) {
+	if err := filesys.UnmountVolume(volume, MountPoint); err != nil {
+		logger.Error("Failed to unmount volume: ", err)
+	}
+	if err := filesys.UnmountOverlayFS(BusyboxRoot, MountPoint); err != nil {
+		logger.Error("Failed to unmount overlayfs: ", err)
+	}
+
+	if err := cgroups.Cleanup(); err != nil {
+		logger.Error("Failed to cleanup cgroup error: ", err)
+	}
 }
 
 func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string) (*exec.Cmd, *os.File, error) {

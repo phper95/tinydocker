@@ -46,17 +46,17 @@ func Run(args cli.Args, enableTTY bool, detach bool,
 
 	// 等待/托管容器进程
 	if enableTTY { // 前台交互
+		defer cleanup(volume)
 		waitErr := initCmd.Wait()
-		cleanup(volume)
 		return waitErr
 	}
 
 	if detach { // 后台运行
 		go func() {
+			defer cleanup(volume)
 			if err := initCmd.Wait(); err != nil {
 				logger.Warn("background container exited: %v", err)
 			}
-			cleanup(volume)
 		}()
 		logger.Info("Container running in background with pid: %d", initCmd.Process.Pid)
 		return nil

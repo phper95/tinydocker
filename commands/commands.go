@@ -25,6 +25,10 @@ var RunCommand = cli.Command{
 	Usage: "Run a command in a new container",
 	// 命令参数
 	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "name",
+			Usage: "Assign a name to the container",
+		},
 		&cli.BoolFlag{
 			Name:  "it",
 			Usage: "Interactive mode with pseudo-TTY",
@@ -55,6 +59,10 @@ var RunCommand = cli.Command{
 			logger.Error("No command specified")
 			return errors.New("No command specified")
 		}
+		name := ctx.String("name")
+		if name == "" {
+			return errors.New("Container name cannot be empty")
+		}
 		enableTTY := ctx.Bool("it")
 		detach := ctx.Bool("d")
 
@@ -68,7 +76,7 @@ var RunCommand = cli.Command{
 		volume := ctx.String("v")
 		logger.Debug("enableTTY:", enableTTY, "detach:", detach,
 			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume)
-		err := container.Run(args, enableTTY, detach, memoryLimit, cpuLimit, volume)
+		err := container.Run(args, name, enableTTY, detach, memoryLimit, cpuLimit, volume)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}
@@ -96,5 +104,14 @@ var ExportCommand = cli.Command{
 			return err
 		}
 		return nil
+	},
+}
+
+// docker ps
+var PsCommand = cli.Command{
+	Name:  "ps",
+	Usage: "List containers",
+	Action: func(ctx *cli.Context) error {
+		return container.PrintContainersInfo()
 	},
 }

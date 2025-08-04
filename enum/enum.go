@@ -1,5 +1,6 @@
 package enum
 
 const (
-	AppName = "tinydocker"
+	AppName               = "tinydocker"
+	ContainerStateRunning = "running"
 )

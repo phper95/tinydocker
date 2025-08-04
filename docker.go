@@ -26,8 +26,9 @@ func main() {
 		commands.InitCommand,
 		commands.RunCommand,
 		commands.ExportCommand,
+		commands.PsCommand,
 	}
-	
+
 	// 使用 cli.Run 执行命令
 	if err := app.Run(os.Args); err != nil {
 		logger.Error("app run error", err)

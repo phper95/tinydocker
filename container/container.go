@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/phper95/tinydocker/cgroups"
 	"github.com/phper95/tinydocker/enum"
@@ -20,7 +21,7 @@ const (
 	MountPoint  = "/mnt/overlay"
 )
 
-func Run(args cli.Args, enableTTY bool, detach bool,
+func Run(args cli.Args, name string, enableTTY bool, detach bool,
 	memoryLimit, cpuLimit, volume string) error {
 	logger.Debug("Run  args: ", args)
 
@@ -44,6 +45,20 @@ func Run(args cli.Args, enableTTY bool, detach bool,
 		return err
 	}
 
+	info := Info{
+		Name:      name,
+		Id:        GenerateRandomContainerID(),
+		Pid:       initCmd.Process.Pid,
+		Command:   strings.Join(args, " "),
+		State:     enum.ContainerStateRunning,
+		StartedAt: time.Now().Format(time.DateTime),
+	}
+	logger.Debug("Container info: ", info)
+	err = WriteContainerInfo(&info)
+	if err != nil {
+		logger.Error("Failed to write container info error: ", err)
+		return err
+	}
 	// 等待/托管容器进程
 	if enableTTY { // 前台交互
 		defer cleanup(volume)

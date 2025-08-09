@@ -115,3 +115,23 @@ var PsCommand = cli.Command{
 		return container.PrintContainersInfo()
 	},
 }
+
+// docker logs
+var LogsCommand = cli.Command{
+	Name:  "logs",
+	Usage: "Fetch the logs of a container",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "f",
+			Usage: "Follow log output",
+		},
+	},
+	Action: func(ctx *cli.Context) error {
+		containerID := ctx.Args().First()
+		if containerID == "" {
+			return errors.New("container name cannot be empty")
+		}
+		follow := ctx.Bool("f")
+		return container.PrintContainerLogs(containerID, follow)
+	},
+}

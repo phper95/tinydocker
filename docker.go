@@ -27,6 +27,7 @@ func main() {
 		commands.RunCommand,
 		commands.ExportCommand,
 		commands.PsCommand,
+		commands.LogsCommand,
 	}
 
 	// 使用 cli.Run 执行命令

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -31,12 +32,23 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 	// 	initCmdArgs = append(initCmdArgs, args...)
 	// }
 
-	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit, volume)
+	info := Info{
+		Name:      name,
+		Id:        GenerateRandomContainerID(),
+		Command:   strings.Join(args, " "),
+		State:     enum.ContainerStateRunning,
+		StartedAt: time.Now().Format(time.DateTime),
+	}
+
+	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit, volume, &info)
 	if err != nil {
 		logger.Error("Failed to create init process error: ", err)
 		return err
 	}
 	logger.Debug("Container process started with pid: ", initCmd.Process.Pid)
+
+	// Update the PID after the process is started
+	info.Pid = initCmd.Process.Pid
 
 	// 将管道写入端传递给init命令
 	err = SendInitCommand(args, write)
@@ -44,26 +56,11 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 		logger.Error("Failed to send init command error: ", err)
 		return err
 	}
-
-	info := Info{
-		Name:      name,
-		Id:        GenerateRandomContainerID(),
-		Pid:       initCmd.Process.Pid,
-		Command:   strings.Join(args, " "),
-		State:     enum.ContainerStateRunning,
-		StartedAt: time.Now().Format(time.DateTime),
-	}
 	logger.Debug("Container info: ", info)
 	err = WriteContainerInfo(&info)
 	if err != nil {
 		logger.Error("Failed to write container info error: ", err)
 		return err
-	}
-	// 等待/托管容器进程
-	if enableTTY { // 前台交互
-		defer cleanup(volume)
-		waitErr := initCmd.Wait()
-		return waitErr
 	}
 
 	if detach { // 后台运行
@@ -77,9 +74,9 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 		return nil
 	}
 
-	// 非交互但前台阻塞
+	// 等待/托管容器进程
+	defer cleanup(volume)
 	waitErr := initCmd.Wait()
-	cleanup(volume)
 	return waitErr
 }
 
@@ -97,7 +94,7 @@ func cleanup(volume string) {
 	}
 }
 
-func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string) (*exec.Cmd, *os.File, error) {
+func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *Info) (*exec.Cmd, *os.File, error) {
 
 	read, write, err := os.Pipe()
 	if err != nil {
@@ -136,11 +133,32 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string) (*exec
 	}
 	// 设置工作目录
 	initCmd.Dir = MountPoint
+
 	// 设置交互模式
 	if enableTTY {
 		initCmd.Stdout = os.Stdout
 		initCmd.Stderr = os.Stderr
 		initCmd.Stdin = os.Stdin
+	} else {
+		// For non-TTY mode, redirect stdout and stderr to log file
+		logDir := filepath.Join(DefaultContainerInfoPath, info.Id)
+		if err := os.MkdirAll(logDir, 0622); err != nil {
+			logger.Error("Failed to create log directory: ", err)
+			return initCmd, write, err
+		}
+
+		logFilePath := filepath.Join(logDir, DefaultContainerLogFileName)
+		logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0622)
+		if err != nil {
+			logger.Error("Failed to create log file: ", err)
+			return initCmd, write, err
+		}
+		defer logFile.Close()
+
+		initCmd.Stdout = logFile
+		initCmd.Stderr = logFile
+		// Keep a reference to the log file so we can close it later
+		initCmd.ExtraFiles = append(initCmd.ExtraFiles, logFile)
 	}
 
 	if err := initCmd.Start(); err != nil {

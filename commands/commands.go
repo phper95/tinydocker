@@ -138,32 +138,55 @@ var LogsCommand = cli.Command{
 
 // docker exec [-it] <name> <cmd> [args...]
 var ExecCommand = cli.Command{
-    Name:  "exec",
-    Usage: "Run a command in a running container",
-    Flags: []cli.Flag{
-        &cli.BoolFlag{
-            Name:  "it",
-            Usage: "Interactive mode with pseudo-TTY",
-        },
-    },
-    Action: func(ctx *cli.Context) error {
-        if ctx.NArg() < 2 {
-            return errors.New("usage: tinydocker exec [-it] <name> <command> [args...]")
-        }
-        name := ctx.Args().Get(0)
-        args := ctx.Args()[1:]
-        enableTTY := ctx.Bool("it")
-        return container.Exec(name, args, enableTTY)
-    },
+	Name:  "exec",
+	Usage: "Run a command in a running container",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "it",
+			Usage: "Interactive mode with pseudo-TTY",
+		},
+	},
+	Action: func(ctx *cli.Context) error {
+		if ctx.NArg() < 2 {
+			return errors.New("usage: tinydocker exec [-it] <name> <command> [args...]")
+		}
+		name := ctx.Args().Get(0)
+		args := ctx.Args()[1:]
+		enableTTY := ctx.Bool("it")
+		return container.Exec(name, args, enableTTY)
+	},
 }
 
 // Internal command used after namespace entering to run the actual user command
 var ExecContainerCommand = cli.Command{
-    Name:   "exec-container",
-    Usage:  "Internal: execute a command inside target namespaces",
-    Hidden: true,
-    Action: func(ctx *cli.Context) error {
-        // args are the actual command to run inside the container
-        return container.ExecContainer(ctx.Args())
-    },
+	Name:   "exec-container",
+	Usage:  "Internal: execute a command inside target namespaces",
+	Hidden: true,
+	Action: func(ctx *cli.Context) error {
+		// args are the actual command to run inside the container
+		return container.ExecContainer(ctx.Args())
+	},
+}
+
+// docker stop <containerNameOrID>
+var StopCommand = cli.Command{
+	Name:  "stop",
+	Usage: "Stop one or more running containers",
+	Action: func(ctx *cli.Context) error {
+		if ctx.NArg() == 0 {
+			return errors.New("at least one container name or ID must be specified")
+		}
+
+		name := ctx.Args().Get(0)
+		if len(name) == 0 {
+			return errors.New("container name cannot be empty")
+		}
+
+		if err := container.Stop(name); err != nil {
+			logger.Error("Failed to stop container %s: %v", name, err)
+			return err
+		}
+
+		return nil
+	},
 }

@@ -16,7 +16,7 @@ const ExecTargetPidEnv = "TINYDOCKER_EXEC_PID"
 // It re-execs the current binary with the hidden command "exec-container",
 // passing the target container's init PID via env for the child to join namespaces.
 func Exec(name string, args []string, enableTTY bool) error {
-	info, err := getContainerInfoByName(name)
+	info, err := GetContainerInfoByName(name)
 	if err != nil {
 		logger.Error("get container info failed: %v", err)
 		return err
@@ -48,7 +48,7 @@ func Exec(name string, args []string, enableTTY bool) error {
 	return nil
 }
 
-func getContainerInfoByName(name string) (*Info, error) {
+func GetContainerInfoByName(name string) (*Info, error) {
 	all := ReadContainersInfo()
 	for _, c := range all {
 		if strings.EqualFold(c.Name, name) {

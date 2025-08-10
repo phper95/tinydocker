@@ -9,11 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"text/tabwriter"
+	"time"
 )
 
 const (
 	DefaultContainerInfoPath     = "/var/lib/tinydocker/containers"
 	DefaultContainerInfoFileName = "config.json"
+	ContainerStateRunning        = "running"
+	ContainerStateStopped        = "stopped"
 )
 
 type Info struct {
@@ -45,6 +48,26 @@ func WriteContainerInfo(info *Info) error {
 		return err
 	}
 	return nil
+}
+
+func UpdateContainerState(containerID string, state string) error {
+	// 构建容器配置文件路径
+	filePath := filepath.Join(DefaultContainerInfoPath, containerID, DefaultContainerInfoFileName)
+	
+	// 读取现有配置
+	info, err := ReadContainerInfo(filePath)
+	if err != nil {
+		return err
+	}
+	
+	// 更新状态
+	info.State = state
+	if state == ContainerStateStopped {
+		info.FinishedAt = time.Now().Format(time.DateTime)
+	}
+	
+	// 写回文件
+	return WriteContainerInfo(info)
 }
 
 func GenerateRandomContainerID() string {

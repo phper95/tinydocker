@@ -135,3 +135,35 @@ var LogsCommand = cli.Command{
 		return container.PrintContainerLogs(containerID, follow)
 	},
 }
+
+// docker exec [-it] <name> <cmd> [args...]
+var ExecCommand = cli.Command{
+    Name:  "exec",
+    Usage: "Run a command in a running container",
+    Flags: []cli.Flag{
+        &cli.BoolFlag{
+            Name:  "it",
+            Usage: "Interactive mode with pseudo-TTY",
+        },
+    },
+    Action: func(ctx *cli.Context) error {
+        if ctx.NArg() < 2 {
+            return errors.New("usage: tinydocker exec [-it] <name> <command> [args...]")
+        }
+        name := ctx.Args().Get(0)
+        args := ctx.Args()[1:]
+        enableTTY := ctx.Bool("it")
+        return container.Exec(name, args, enableTTY)
+    },
+}
+
+// Internal command used after namespace entering to run the actual user command
+var ExecContainerCommand = cli.Command{
+    Name:   "exec-container",
+    Usage:  "Internal: execute a command inside target namespaces",
+    Hidden: true,
+    Action: func(ctx *cli.Context) error {
+        // args are the actual command to run inside the container
+        return container.ExecContainer(ctx.Args())
+    },
+}

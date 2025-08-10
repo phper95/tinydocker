@@ -28,6 +28,8 @@ func main() {
 		commands.ExportCommand,
 		commands.PsCommand,
 		commands.LogsCommand,
+		commands.ExecCommand,
+		commands.ExecContainerCommand,
 	}
 
 	// 使用 cli.Run 执行命令

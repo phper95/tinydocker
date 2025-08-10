@@ -112,6 +112,7 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
 			syscall.CLONE_NEWNS |
+			syscall.CLONE_NEWNET |
 			syscall.CLONE_NEWIPC,
 	}
 

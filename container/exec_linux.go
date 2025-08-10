@@ -52,7 +52,7 @@ func ExecContainer(args cli.Args) error {
 	}
 
 	// join namespaces of target pid (mnt, uts, ipc, net). pid ns join affects children only.
-	namespaces := []string{"mnt", "uts", "ipc", "net"}
+	namespaces := []string{"mnt", "uts", "ipc", "net", "pid"}
 	for _, ns := range namespaces {
 		if err := joinNamespace(targetPid, ns); err != nil {
 			logger.Error("joinNamespace(%s) failed: %v", ns, err)

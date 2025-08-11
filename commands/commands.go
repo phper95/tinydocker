@@ -190,3 +190,33 @@ var StopCommand = cli.Command{
 		return nil
 	},
 }
+
+// docker rm [-f] <containerNameOrID>
+var RemoveCommand = cli.Command{
+	Name:  "rm",
+	Usage: "Remove one or more containers",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "f",
+			Usage: "Force removal of running container",
+		},
+	},
+	Action: func(ctx *cli.Context) error {
+		if ctx.NArg() == 0 {
+			return errors.New("at least one container name or ID must be specified")
+		}
+
+		name := ctx.Args().Get(0)
+		if len(name) == 0 {
+			return errors.New("container name cannot be empty")
+		}
+
+		force := ctx.Bool("f")
+		if err := container.Remove(name, force); err != nil {
+			logger.Error("Failed to remove container %s: %v", name, err)
+			return err
+		}
+
+		return nil
+	},
+}

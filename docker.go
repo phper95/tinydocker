@@ -31,6 +31,7 @@ func main() {
 		commands.ExecCommand,
 		commands.ExecContainerCommand,
 		commands.StopCommand,
+		commands.RemoveCommand,
 	}
 
 	// 使用 cli.Run 执行命令

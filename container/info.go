@@ -14,6 +14,7 @@ import (
 
 const (
 	DefaultContainerInfoPath     = "/var/lib/tinydocker/containers"
+	DefaultImagePath             = "/var/lib/tinydocker/image"
 	DefaultContainerInfoFileName = "config.json"
 	ContainerStateRunning        = "running"
 	ContainerStateStopped        = "stopped"
@@ -27,6 +28,7 @@ type Info struct {
 	State      string `json:"state"`       // 容器的状态
 	StartedAt  string `json:"started_at"`  // 启动时间
 	FinishedAt string `json:"finished_at"` // 结束时间
+	Image      string `json:"image"`       // 容器使用的镜像名称
 }
 
 func WriteContainerInfo(info *Info) error {
@@ -53,19 +55,19 @@ func WriteContainerInfo(info *Info) error {
 func UpdateContainerState(containerID string, state string) error {
 	// 构建容器配置文件路径
 	filePath := filepath.Join(DefaultContainerInfoPath, containerID, DefaultContainerInfoFileName)
-	
+
 	// 读取现有配置
 	info, err := ReadContainerInfo(filePath)
 	if err != nil {
 		return err
 	}
-	
+
 	// 更新状态
 	info.State = state
 	if state == ContainerStateStopped {
 		info.FinishedAt = time.Now().Format(time.DateTime)
 	}
-	
+
 	// 写回文件
 	return WriteContainerInfo(info)
 }

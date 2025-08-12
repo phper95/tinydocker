@@ -19,11 +19,10 @@ import (
 // Paths used across container lifecycle for overlayfs and volume handling.
 const (
 	BusyboxRoot = "/var/local/busybox"
-	MountPoint  = "/mnt/overlay"
 )
 
 func Run(args cli.Args, name string, enableTTY bool, detach bool,
-	memoryLimit, cpuLimit, volume string) error {
+	memoryLimit, cpuLimit, volume string, imageName string) error {
 	logger.Debug("Run  args: ", args)
 
 	// initCmdArgs := []string{"init"}
@@ -38,6 +37,7 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 		Command:   strings.Join(args, " "),
 		State:     enum.ContainerStateRunning,
 		StartedAt: time.Now().Format(time.DateTime),
+		Image:     imageName,
 	}
 
 	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit, volume, &info)
@@ -65,7 +65,7 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 
 	if detach { // 后台运行
 		go func() {
-			defer cleanup(volume)
+			defer cleanup(volume, info.Id)
 			if err := initCmd.Wait(); err != nil {
 				logger.Warn("background container exited: %v", err)
 			}
@@ -75,18 +75,31 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 	}
 
 	// 等待/托管容器进程
-	defer cleanup(volume)
+	defer cleanup(volume, info.Id)
 	waitErr := initCmd.Wait()
 	return waitErr
 }
 
+// GetContainerMountPoint 根据容器ID获取挂载点路径
+func GetContainerMountPoint(containerId string) string {
+	return filepath.Join(DefaultContainerInfoPath, containerId, "overlay")
+}
+
 // 资源清理封装
-func cleanup(volume string) {
-	if err := filesys.UnmountVolume(volume, MountPoint); err != nil {
+func cleanup(volume string, containerId string) {
+	// 使用基于容器ID的挂载点
+	containerMountPoint := GetContainerMountPoint(containerId)
+	containerDir := filepath.Join(DefaultContainerInfoPath, containerId)
+	if err := filesys.UnmountVolume(volume, containerMountPoint); err != nil {
 		logger.Error("Failed to unmount volume: ", err)
 	}
-	if err := filesys.UnmountOverlayFS(BusyboxRoot, MountPoint); err != nil {
+	if err := filesys.UnmountOverlayFS(containerDir, containerMountPoint); err != nil {
 		logger.Error("Failed to unmount overlayfs: ", err)
+	}
+
+	// 删除挂载点目录
+	if err := os.RemoveAll(containerMountPoint); err != nil {
+		logger.Error("Failed to remove container mount point: ", err)
 	}
 
 	if err := cgroups.Cleanup(); err != nil {
@@ -118,22 +131,34 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *
 
 	// 传入管道文件读取端句柄，外带此句柄去创建子进程
 	initCmd.ExtraFiles = []*os.File{read}
-	tarPath := "/var/local/busybox-rootfs.tar"
+
+	// 根据imageName确定tar包路径，如果未指定则使用默认的busybox-rootfs.tar
+	tarPath := filepath.Join("/var/local", info.Image+".tar")
+
+	// 创建基于容器ID的挂载点
+	containerMountPoint := GetContainerMountPoint(info.Id)
+	if err := os.MkdirAll(containerMountPoint, 0755); err != nil {
+		logger.Error("Failed to create container mount point: ", err)
+		return nil, nil, err
+	}
 
 	// Create and mount overlayfs.
-	err = filesys.CreateOverlayFS(BusyboxRoot, MountPoint, tarPath)
+	imageDir := filepath.Join(DefaultImagePath, info.Image)
+	containerDir := filepath.Join(DefaultContainerInfoPath, info.Id)
+	logger.Debug("imageDir: %s, containerDir: %s, containerMountPoint: %s, tarPath: %s", imageDir, containerDir, containerMountPoint, tarPath)
+	err = filesys.CreateOverlayFS(containerDir, imageDir, containerMountPoint, tarPath)
 	if err != nil {
 		logger.Error("Failed to create overlayfs error: ", err)
 		return nil, nil, err
 	}
 
 	// Mount data volume if specified.
-	if err := filesys.MountVolume(volume, MountPoint); err != nil {
+	if err := filesys.MountVolume(volume, containerMountPoint); err != nil {
 		logger.Error("Failed to mount volume: ", err)
 		return nil, nil, err
 	}
 	// 设置工作目录
-	initCmd.Dir = MountPoint
+	initCmd.Dir = containerMountPoint
 
 	// 设置交互模式
 	if enableTTY {

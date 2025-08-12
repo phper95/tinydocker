@@ -45,7 +45,7 @@ func MountVolume(volume, mountRoot string) error {
 	  // 不复制数据，只是建立新的路径映射
 	  // 访问速度与直接访问原文件相同
 	*/
-	if err := syscall.Mount(hostDir, dest, "", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+	if err := syscall.Mount(hostDir, dest, "none", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
 		return fmt.Errorf("bind mount %s to %s failed: %w", hostDir, dest, err)
 	}
 	logger.Debug("volume mounted %s --> %s", hostDir, dest)

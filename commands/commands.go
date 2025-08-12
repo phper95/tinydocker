@@ -55,9 +55,9 @@ var RunCommand = cli.Command{
 		args := ctx.Args()
 		logger.Debug("args:", args)
 		// 命令行参数校验
-		if len(args) == 0 {
-			logger.Error("No command specified")
-			return errors.New("No command specified")
+		if len(args) < 2 {
+			return errors.New("Usage: tinydocker run [OPTIONS] IMAGE COMMAND")
+			// return errors.New("Usage: tinydocker run [OPTIONS] IMAGE COMMAND")
 		}
 		name := ctx.String("name")
 		if name == "" {
@@ -74,9 +74,10 @@ var RunCommand = cli.Command{
 		memoryLimit := ctx.String("m")
 		cpuLimit := ctx.String("cpus")
 		volume := ctx.String("v")
+		imageName := ctx.Args().Get(0)
 		logger.Debug("enableTTY:", enableTTY, "detach:", detach,
-			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume)
-		err := container.Run(args, name, enableTTY, detach, memoryLimit, cpuLimit, volume)
+			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume, "image:", imageName)
+		err := container.Run(args[1:], name, enableTTY, detach, memoryLimit, cpuLimit, volume, imageName)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}
@@ -87,7 +88,7 @@ var RunCommand = cli.Command{
 // docker export imageName
 var ExportCommand = cli.Command{
 	Name:  "export",
-	Usage: "Package the current running container into a tar file (docker export -o <tarfile> <imageName>)",
+	Usage: "Package the current running container into a tar file (docker export -o <tarfile>  <containerName>)",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "o",
@@ -95,11 +96,16 @@ var ExportCommand = cli.Command{
 		},
 	},
 	Action: func(ctx *cli.Context) error {
+		if len(ctx.Args()) == 0 {
+			logger.Error("Usage: tinydocker export [-o <tarfile>] <containerName>")
+			return errors.New("Usage: tinydocker export [-o <tarfile>]  <containerName>")
+		}
+		containerName := ctx.Args().Get(0)
 		output := ctx.String("o")
 		if output == "" {
 			output = "container.tar"
 		}
-		if err := image.Export(output); err != nil {
+		if err := image.Export(containerName, output); err != nil {
 			logger.Error("export error: ", err)
 			return err
 		}

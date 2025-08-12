@@ -9,16 +9,17 @@ import (
 	"syscall"
 )
 
-func CreateOverlayFS(busyboxDir, mountPoint, tarPath string) error {
-	// 解压 busybox-rootfs.tar.gz 到 /var/local/busybox
+func CreateOverlayFS(containerDir, imageDir, mountPoint, tarPath string) error {
+	// 解压 busybox-rootfs.tar.gz 到 /var/lib/tinydocker/image/$imageName下
 	// 判断busyboxDir文件夹是否存在，不存在则创建文件夹
-	if _, err := os.Stat(busyboxDir); os.IsNotExist(err) {
-		err := os.MkdirAll(busyboxDir, 0755)
+	if _, err := os.Stat(imageDir); os.IsNotExist(err) {
+		err := os.MkdirAll(imageDir, 0755)
 		if err != nil {
-			logger.Error("failed to create %s: %v", busyboxDir, err)
+			logger.Error("failed to create %s: %v", imageDir, err)
 			return err
 		}
-		output, err := exec.Command("tar", "-xvf", tarPath, "-C", busyboxDir).CombinedOutput()
+		output, err := exec.Command("tar", "-xvf", tarPath, "-C", imageDir).CombinedOutput()
+		logger.Debug("extract %s output %s", tarPath, string(output))
 		if err != nil {
 			logger.Error("failed to extract %s: err %v output %s", tarPath, err, string(output))
 			return err
@@ -26,9 +27,9 @@ func CreateOverlayFS(busyboxDir, mountPoint, tarPath string) error {
 	}
 
 	// 设置 OverlayFS 相关文件夹
-	lowerDir := busyboxDir
-	upperDir := path.Join(path.Dir(busyboxDir), "upper")
-	workDir := path.Join(path.Dir(busyboxDir), "work")
+	lowerDir := imageDir
+	upperDir := path.Join(containerDir, "upper")
+	workDir := path.Join(containerDir, "work")
 	// 创建 upper 和 work 目录
 	err := os.MkdirAll(upperDir, 0755)
 	if err != nil {
@@ -75,14 +76,14 @@ func MountOverlayFS(lowerDir, upperDir, workDir, mountPoint string) error {
 	return nil
 }
 
-func UnmountOverlayFS(busyboxDir, mountPoint string) error {
+func UnmountOverlayFS(containerDir, mountPoint string) error {
 	// 卸载 OverlayFS
 	if err := syscall.Unmount(mountPoint, 0); err != nil {
 		logger.Error("failed to unmount overlayfs: %v", err)
 		return fmt.Errorf("failed to unmount overlayfs: %w", err)
 	}
-	upperDir := path.Join(path.Dir(busyboxDir), "upper")
-	workDir := path.Join(path.Dir(busyboxDir), "work")
+	upperDir := path.Join(containerDir, "upper")
+	workDir := path.Join(containerDir, "work")
 	err := os.RemoveAll(upperDir)
 	if err != nil {
 		logger.Error("failed to remove %s: %v", upperDir, err)

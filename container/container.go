@@ -22,7 +22,7 @@ const (
 )
 
 func Run(args cli.Args, name string, enableTTY bool, detach bool,
-	memoryLimit, cpuLimit, volume string, imageName string) error {
+	memoryLimit, cpuLimit, volume string, imageName string, envVars []string) error {
 	logger.Debug("Run  args: ", args)
 
 	// initCmdArgs := []string{"init"}
@@ -40,13 +40,12 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 		Image:     imageName,
 	}
 
-	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit, volume, &info)
+	initCmd, write, err := NewInitProcess(enableTTY, memoryLimit, cpuLimit, volume, &info, envVars)
 	if err != nil {
 		logger.Error("Failed to create init process error: ", err)
 		return err
 	}
 	logger.Debug("Container process started with pid: ", initCmd.Process.Pid)
-
 	// Update the PID after the process is started
 	info.Pid = initCmd.Process.Pid
 
@@ -107,7 +106,7 @@ func cleanup(volume string, containerId string) {
 	}
 }
 
-func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *Info) (*exec.Cmd, *os.File, error) {
+func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *Info, envVars []string) (*exec.Cmd, *os.File, error) {
 
 	read, write, err := os.Pipe()
 	if err != nil {
@@ -131,6 +130,9 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *
 
 	// 传入管道文件读取端句柄，外带此句柄去创建子进程
 	initCmd.ExtraFiles = []*os.File{read}
+	if len(envVars) > 0 {
+		initCmd.Env = append(os.Environ(), envVars...)
+	}
 
 	// 根据imageName确定tar包路径，如果未指定则使用默认的busybox-rootfs.tar
 	tarPath := filepath.Join("/var/local", info.Image+".tar")

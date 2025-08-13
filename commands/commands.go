@@ -49,6 +49,10 @@ var RunCommand = cli.Command{
 			Name:  "v",
 			Usage: "Bind mount a volume (host_dir:container_dir)",
 		},
+		&cli.StringSliceFlag{
+			Name:  "e",
+			Usage: "Set environment variables (e.g., -e KEY=VALUE)",
+		},
 	},
 	Action: func(ctx *cli.Context) error {
 		// 获取命令参数列表
@@ -74,10 +78,11 @@ var RunCommand = cli.Command{
 		memoryLimit := ctx.String("m")
 		cpuLimit := ctx.String("cpus")
 		volume := ctx.String("v")
+		envVars := ctx.StringSlice("e")
 		imageName := ctx.Args().Get(0)
 		logger.Debug("enableTTY:", enableTTY, "detach:", detach,
-			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume, "image:", imageName)
-		err := container.Run(args[1:], name, enableTTY, detach, memoryLimit, cpuLimit, volume, imageName)
+			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume, "image:", imageName, "envVars:", envVars)
+		err := container.Run(args[1:], name, enableTTY, detach, memoryLimit, cpuLimit, volume, imageName, envVars)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}

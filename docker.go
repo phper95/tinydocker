@@ -17,7 +17,7 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 func main() {
-	logger.Debug("tinydocker start")
+	log.Println("tinydocker start")
 	app := cli.NewApp()
 	app.Name = enum.AppName
 	app.Usage = "A simple container runtime"
@@ -32,6 +32,7 @@ func main() {
 		commands.ExecContainerCommand,
 		commands.StopCommand,
 		commands.RemoveCommand,
+		commands.NetworkCommand,
 	}
 
 	// 使用 cli.Run 执行命令

@@ -2,6 +2,10 @@ package db
 
 import (
 	"fmt"
+	"github.com/phper95/tinydocker/pkg/logger"
+	"os"
+	"path"
+	"sync"
 	"time"
 
 	"go.etcd.io/bbolt"
@@ -15,10 +19,19 @@ type BoltDB struct {
 const DefaultBoltDBClientName = "default"
 
 var BoltDBClients = make(map[string]*BoltDB)
+var lock sync.Mutex
 
-func InitBoltDBClients(clientName string, dbPath string) error {
+func InitBoltDBClient(clientName string, dbPath string) error {
+	lock.Lock()
+	defer lock.Unlock()
+	if _, ok := BoltDBClients[clientName]; ok {
+		return nil
+	}
+	// DefaultNetworkDBPath路径不存在则创建
+	os.MkdirAll(path.Dir(dbPath), os.ModePerm)
 	db, err := NewBoltDB(dbPath)
 	if err != nil {
+		logger.Error("init bolt db client failed", "clientName", clientName, "dbPath", dbPath, "err", err)
 		panic(err)
 	}
 	BoltDBClients[clientName] = db
@@ -202,5 +215,33 @@ func (b *BoltDB) ForEach(bucketName string, fn func(string, []byte) error) error
 			copy(value, v)
 			return fn(string(k), value)
 		})
+	})
+}
+
+// ClearBucket 清空指定bucket中的所有数据
+func (b *BoltDB) ClearBucket(bucketName string) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucketName))
+		if bucket == nil {
+			// 如果bucket不存在，直接返回
+			return nil
+		}
+
+		// 获取所有键
+		var keysToDelete [][]byte
+		cursor := bucket.Cursor()
+		for k, _ := cursor.First(); k != nil; k, _ = cursor.Next() {
+			keysToDelete = append(keysToDelete, make([]byte, len(k)))
+			copy(keysToDelete[len(keysToDelete)-1], k)
+		}
+
+		// 删除所有键值对
+		for _, key := range keysToDelete {
+			if err := bucket.Delete(key); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 }

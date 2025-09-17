@@ -52,13 +52,13 @@ func CreateNetwork(name, driver, subnet string) error {
 		return fmt.Errorf("network %s already exists", name)
 	}
 	// 解析子网
-	allocateIP, ipNet, err := net.ParseCIDR(subnet)
+	_, ipNet, err := net.ParseCIDR(subnet)
 	if err != nil {
 		logger.Error("parse subnet error: ", err)
 		return err
 	}
 	// 在子网中分配IP
-	ip, err := AllocateIP(allocateIP)
+	ip, err := AllocateIP(ipNet)
 	if err != nil {
 		logger.Error("allocate ip error: ", err)
 		return err

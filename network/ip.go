@@ -7,7 +7,6 @@ import (
 	"github.com/phper95/tinydocker/pkg/db"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/vishvananda/netlink"
-	"log"
 	"math"
 	"net"
 	"os/exec"
@@ -18,32 +17,6 @@ import (
 // 存储每个子网的 IP 分配状态
 var allocatedIP map[string]string
 var lock sync.Mutex
-
-func init() {
-	InitBoltDB()
-	err := LoadIP()
-	if err != nil {
-		logger.Error("Failed to load allocated IP", allocatedIP, "err:", err)
-	} else {
-		logger.Info("Loaded allocated IP: ", allocatedIP)
-	}
-}
-func InitBoltDB() {
-	err := db.InitBoltDBClient(db.DefaultBoltDBClientName, enum.DefaultNetworkDBPath)
-	if err != nil {
-		logger.Error("init bolt db error", err)
-		panic(err)
-	}
-	err = db.GetBoltDBClient(db.DefaultBoltDBClientName).CreateBucketIfNotExists(enum.DefaultNetworkTable)
-	if err != nil {
-		logger.Error("create network table error", err)
-	}
-	err = db.GetBoltDBClient(db.DefaultBoltDBClientName).CreateBucketIfNotExists(enum.AllocatedIPKey)
-	if err != nil {
-		logger.Error("create allocated ip table error", err)
-	}
-	log.Println("init bolt db finished", db.DefaultBoltDBClientName)
-}
 
 // 从指定子网中分配一个可用的IP地址
 func AllocateIP(subnet *net.IPNet) (ip net.IP, err error) {
@@ -105,6 +78,7 @@ func AllocateIP(subnet *net.IPNet) (ip net.IP, err error) {
 		}
 	}
 	err = SaveIP()
+	fmt.Println("IP:", ip)
 	return ip, err
 }
 
@@ -112,9 +86,6 @@ func AllocateIP(subnet *net.IPNet) (ip net.IP, err error) {
 // subnet: 要释放IP地址的子网
 // ip: 要释放的IP地址
 func ReleaseIP(subnet *net.IPNet, ip net.IP) error {
-	lock.Lock()
-	defer lock.Unlock()
-
 	// 检查子网是否存在
 	subnetStr := subnet.String()
 	ipStr := ip.String()
@@ -254,10 +225,12 @@ func SetInterfaceUp(name string) error {
 // -j MASQUERADE：执行MASQUERADE动作，将数据包的源IP地址替换为出口接口的IP地址
 func SetupIptables(name string, subnet *net.IPNet) error {
 	iptableCmd := fmt.Sprintf("-t nat -A POSTROUTING -s %s ! -o %s -j MASQUERADE", subnet.String(), name)
+	logger.Info("Setup iptables command: %s", iptableCmd)
 	output, err := exec.Command("iptables", strings.Split(iptableCmd, " ")...).Output()
 	if err != nil {
 		logger.Error("Failed to execute iptables command: %s", output)
 		return err
 	}
+	logger.Info("Setup iptables rule: %s", string(output))
 	return nil
 }

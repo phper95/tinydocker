@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"github.com/phper95/tinydocker/container/models"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ func Stop(containerName string) error {
 	}
 
 	// 检查容器是否正在运行
-	if info.State != ContainerStateRunning {
+	if info.State != models.ContainerStateRunning {
 		return fmt.Errorf("container %s is not running", containerName)
 	}
 
@@ -30,7 +31,7 @@ func Stop(containerName string) error {
 	}
 
 	// 更新容器状态为已停止
-	err = UpdateContainerState(info.Id, ContainerStateStopped)
+	err = models.UpdateContainerState(info.Id, models.ContainerStateStopped)
 	if err != nil {
 		return fmt.Errorf("failed to update container %s state: %v", containerName, err)
 	}
@@ -40,12 +41,12 @@ func Stop(containerName string) error {
 }
 
 // findContainerInfo finds container info by name or ID
-func findContainerInfo(nameOrID string) (*Info, error) {
+func findContainerInfo(nameOrID string) (*models.Info, error) {
 	// 首先尝试按ID精确匹配
-	filePath := filepath.Join(DefaultContainerInfoPath, nameOrID, DefaultContainerInfoFileName)
+	filePath := filepath.Join(models.DefaultContainerInfoPath, nameOrID, models.DefaultContainerInfoFileName)
 	if _, err := os.Stat(filePath); err == nil {
 		// 找到精确匹配的ID
-		return ReadContainerInfo(filePath)
+		return models.ReadContainerInfo(filePath)
 	}
 
 	// 如果没有精确匹配，遍历所有容器查找匹配名称的容器

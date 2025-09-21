@@ -1,4 +1,4 @@
-package container
+package models
 
 import (
 	"crypto/rand"
@@ -21,14 +21,17 @@ const (
 )
 
 type Info struct {
-	Id         string `json:"id"`          // 容器Id
-	Name       string `json:"name"`        // 容器名
-	Pid        int    `json:"pid"`         // 容器的init进程在宿主机上的 PID
-	Command    string `json:"command"`     // 容器内init运行命令
-	State      string `json:"state"`       // 容器的状态
-	StartedAt  string `json:"started_at"`  // 启动时间
-	FinishedAt string `json:"finished_at"` // 结束时间
-	Image      string `json:"image"`       // 容器使用的镜像名称
+	Id          string   `json:"id"`          // 容器Id
+	Name        string   `json:"name"`        // 容器名
+	Pid         int      `json:"pid"`         // 容器的init进程在宿主机上的 PID
+	Command     string   `json:"command"`     // 容器内init运行命令
+	State       string   `json:"state"`       // 容器的状态
+	StartedAt   string   `json:"started_at"`  // 启动时间
+	FinishedAt  string   `json:"finished_at"` // 结束时间
+	Image       string   `json:"image"`       // 容器使用的镜像名称
+	Network     string   `json:"network"`
+	IpAddress   string   `json:"ipAddress"`
+	PortMapping []string `json:"port_mapping"` // 端口映射
 }
 
 func WriteContainerInfo(info *Info) error {

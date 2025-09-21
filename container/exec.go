@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"github.com/phper95/tinydocker/container/models"
 	"os"
 	"os/exec"
 	"strconv"
@@ -48,8 +49,8 @@ func Exec(name string, args []string, enableTTY bool) error {
 	return nil
 }
 
-func GetContainerInfoByName(name string) (*Info, error) {
-	all := ReadContainersInfo()
+func GetContainerInfoByName(name string) (*models.Info, error) {
+	all := models.ReadContainersInfo()
 	for _, c := range all {
 		if strings.EqualFold(c.Name, name) {
 			cc := c

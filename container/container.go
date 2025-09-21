@@ -2,6 +2,9 @@ package container
 
 import (
 	"fmt"
+	"github.com/phper95/tinydocker/container/models"
+	"github.com/phper95/tinydocker/network"
+	"github.com/phper95/tinydocker/pkg/db"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +25,7 @@ const (
 )
 
 func Run(args cli.Args, name string, enableTTY bool, detach bool,
-	memoryLimit, cpuLimit, volume string, imageName string, envVars []string) error {
+	memoryLimit, cpuLimit, volume string, imageName string, envVars []string, net string, portMapping []string) error {
 	logger.Debug("Run  args: ", args)
 
 	// initCmdArgs := []string{"init"}
@@ -31,9 +34,9 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 	// 	initCmdArgs = append(initCmdArgs, args...)
 	// }
 
-	info := Info{
+	info := models.Info{
 		Name:      name,
-		Id:        GenerateRandomContainerID(),
+		Id:        models.GenerateRandomContainerID(),
 		Command:   strings.Join(args, " "),
 		State:     enum.ContainerStateRunning,
 		StartedAt: time.Now().Format(time.DateTime),
@@ -49,6 +52,19 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 	// Update the PID after the process is started
 	info.Pid = initCmd.Process.Pid
 
+	if net != "" {
+		info.Network = net
+		info.PortMapping = portMapping // 端口映射信息，用于容器间通信
+		ip, err := network.Connect(net, &info)
+		if err != nil {
+			logger.Error("Failed to connect container to network error: ", err)
+			return err
+		}
+		info.IpAddress = ip.String()
+	}
+	// 在这里关闭数据库连接，防止其他容器启动时，无法获取数据库连接
+	db.GetBoltDBClient(db.DefaultBoltDBClientName).Close()
+
 	// 将管道写入端传递给init命令
 	err = SendInitCommand(args, write)
 	if err != nil {
@@ -56,7 +72,7 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 		return err
 	}
 	logger.Debug("Container info: ", info)
-	err = WriteContainerInfo(&info)
+	err = models.WriteContainerInfo(&info)
 	if err != nil {
 		logger.Error("Failed to write container info error: ", err)
 		return err
@@ -81,14 +97,14 @@ func Run(args cli.Args, name string, enableTTY bool, detach bool,
 
 // GetContainerMountPoint 根据容器ID获取挂载点路径
 func GetContainerMountPoint(containerId string) string {
-	return filepath.Join(DefaultContainerInfoPath, containerId, "overlay")
+	return filepath.Join(models.DefaultContainerInfoPath, containerId, "overlay")
 }
 
 // 资源清理封装
 func cleanup(volume string, containerId string) {
 	// 使用基于容器ID的挂载点
 	containerMountPoint := GetContainerMountPoint(containerId)
-	containerDir := filepath.Join(DefaultContainerInfoPath, containerId)
+	containerDir := filepath.Join(models.DefaultContainerInfoPath, containerId)
 	if err := filesys.UnmountVolume(volume, containerMountPoint); err != nil {
 		logger.Error("Failed to unmount volume: ", err)
 	}
@@ -106,7 +122,7 @@ func cleanup(volume string, containerId string) {
 	}
 }
 
-func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *Info, envVars []string) (*exec.Cmd, *os.File, error) {
+func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *models.Info, envVars []string) (*exec.Cmd, *os.File, error) {
 
 	read, write, err := os.Pipe()
 	if err != nil {
@@ -145,8 +161,8 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *
 	}
 
 	// Create and mount overlayfs.
-	imageDir := filepath.Join(DefaultImagePath, info.Image)
-	containerDir := filepath.Join(DefaultContainerInfoPath, info.Id)
+	imageDir := filepath.Join(models.DefaultImagePath, info.Image)
+	containerDir := filepath.Join(models.DefaultContainerInfoPath, info.Id)
 	logger.Debug("imageDir: %s, containerDir: %s, containerMountPoint: %s, tarPath: %s", imageDir, containerDir, containerMountPoint, tarPath)
 	err = filesys.CreateOverlayFS(containerDir, imageDir, containerMountPoint, tarPath)
 	if err != nil {
@@ -169,7 +185,7 @@ func NewInitProcess(enableTTY bool, memoryLimit, cpuLimit, volume string, info *
 		initCmd.Stdin = os.Stdin
 	} else {
 		// For non-TTY mode, redirect stdout and stderr to log file
-		logDir := filepath.Join(DefaultContainerInfoPath, info.Id)
+		logDir := filepath.Join(models.DefaultContainerInfoPath, info.Id)
 		if err := os.MkdirAll(logDir, 0622); err != nil {
 			logger.Error("Failed to create log directory: ", err)
 			return initCmd, write, err

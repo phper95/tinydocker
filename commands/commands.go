@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"github.com/phper95/tinydocker/container/models"
 
 	"github.com/phper95/tinydocker/container"
 	"github.com/phper95/tinydocker/image"
@@ -53,6 +54,14 @@ var RunCommand = cli.Command{
 			Name:  "e",
 			Usage: "Set environment variables (e.g., -e KEY=VALUE)",
 		},
+		&cli.StringFlag{
+			Name:  "net",
+			Usage: "container network",
+		},
+		&cli.StringSliceFlag{
+			Name:  "p",
+			Usage: "port mapping",
+		},
 	},
 	Action: func(ctx *cli.Context) error {
 		// 获取命令参数列表
@@ -80,9 +89,11 @@ var RunCommand = cli.Command{
 		volume := ctx.String("v")
 		envVars := ctx.StringSlice("e")
 		imageName := ctx.Args().Get(0)
+		network := ctx.String("net")
+		portMapping := ctx.StringSlice("p")
 		logger.Debug("enableTTY:", enableTTY, "detach:", detach,
 			"memoryLimit:", memoryLimit, "cpuLimit:", cpuLimit, "volume:", volume, "image:", imageName, "envVars:", envVars)
-		err := container.Run(args[1:], name, enableTTY, detach, memoryLimit, cpuLimit, volume, imageName, envVars)
+		err := container.Run(args[1:], name, enableTTY, detach, memoryLimit, cpuLimit, volume, imageName, envVars, network, portMapping)
 		if err != nil {
 			logger.Error("Run container error:", err)
 		}
@@ -123,7 +134,7 @@ var PsCommand = cli.Command{
 	Name:  "ps",
 	Usage: "List containers",
 	Action: func(ctx *cli.Context) error {
-		return container.PrintContainersInfo()
+		return models.PrintContainersInfo()
 	},
 }
 

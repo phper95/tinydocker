@@ -3,6 +3,7 @@ package container
 import (
 	"bufio"
 	"fmt"
+	"github.com/phper95/tinydocker/container/models"
 	"github.com/phper95/tinydocker/pkg/logger"
 	"io"
 	"os"
@@ -15,7 +16,7 @@ const (
 )
 
 func PrintContainerLogs(containerID string, follow bool) error {
-	logDir := filepath.Join(DefaultContainerInfoPath, containerID)
+	logDir := filepath.Join(models.DefaultContainerInfoPath, containerID)
 	logFilePath := filepath.Join(logDir, DefaultContainerLogFileName)
 	// Check if log file exists
 	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {

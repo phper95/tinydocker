@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"github.com/phper95/tinydocker/pkg/logger"
+	"log"
 	"os"
 	"path"
 	"sync"
@@ -28,10 +29,10 @@ func InitBoltDBClient(clientName string, dbPath string) error {
 		return nil
 	}
 	// DefaultNetworkDBPath路径不存在则创建
-	os.MkdirAll(path.Dir(dbPath), os.ModePerm)
+	os.MkdirAll(path.Dir(dbPath), 0o750)
 	db, err := NewBoltDB(dbPath)
 	if err != nil {
-		logger.Error("init bolt db client failed", "clientName", clientName, "dbPath", dbPath, "err", err)
+		logger.Error("init bolt db client failed clientName ", clientName, " dbPath ", dbPath, " err ", err)
 		panic(err)
 	}
 	BoltDBClients[clientName] = db
@@ -50,7 +51,8 @@ func GetBoltDBClient(name string) *BoltDB {
 
 // NewBoltDB 创建一个新的BoltDB实例
 func NewBoltDB(dbPath string) (*BoltDB, error) {
-	db, err := bbolt.Open(dbPath, 0600, &bbolt.Options{Timeout: 1 * time.Second})
+	log.Println("NewBoltDB dbPath ", dbPath)
+	db, err := bbolt.Open(dbPath, 0o644, &bbolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +62,9 @@ func NewBoltDB(dbPath string) (*BoltDB, error) {
 
 // Close 关闭数据库连接
 func (b *BoltDB) Close() error {
+	if b.db == nil {
+		return nil
+	}
 	return b.db.Close()
 }
 

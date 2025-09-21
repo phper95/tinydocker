@@ -1,12 +1,16 @@
 package network
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
 	"github.com/phper95/tinydocker/pkg/logger"
 	"github.com/vishvananda/netlink"
 )
+
+// 用于生成对端虚拟网络接口的名称前缀
+const BridgePeerNamePrefix = "br-peer-"
 
 // 用作桥接网络驱动的方法接收者
 type BridgeNetworkDriver struct {
@@ -54,10 +58,63 @@ func (b *BridgeNetworkDriver) Delete(network Network) error {
 }
 
 func (b *BridgeNetworkDriver) Connect(network *Network, endpoint *Endpoint) error {
+	bridgeName := network.Name
+	// 获取网桥网络接口
+	br, err := netlink.LinkByName(bridgeName)
+	if err != nil {
+		logger.Error("get bridge error: ", err)
+		return err
+	}
+
+	// 创建一个网络链接属性对象，用于配置网络接口的基本属性
+	la := netlink.NewLinkAttrs()
+	// 将网络端点ID的前5个字符作为网络接口的名称。这是一种命名约定，用于标识不同的网络端点。
+	la.Name = endpoint.ID[:5]
+	logger.Debug("endpoint name: ", la.Name, "endpoint.ID", endpoint.ID)
+	// 设置主接口索引，将这个虚拟网络设备绑定到之前获取的网桥上。MasterIndex指定了该接口的主设备（即网桥）的索引。
+	la.MasterIndex = br.Attrs().Index
+
+	// 创建Veth虚拟以太网设备对
+	endpoint.Device = netlink.Veth{
+		LinkAttrs: la,
+		// PeerName指定了Veth设备的另一端，后面会连接到网络命名空间
+		PeerName: BridgePeerNamePrefix + endpoint.ID[:5],
+	}
+
+	// 将Veth设备一端连接到网桥
+	if err = netlink.LinkAdd(&endpoint.Device); err != nil {
+		return fmt.Errorf("Error Add Endpoint Device: %v", err)
+	}
+
+	// 设置Veth设备为up状态
+	if err = netlink.LinkSetUp(&endpoint.Device); err != nil {
+		return fmt.Errorf("Error Add Endpoint Device: %v", err)
+	}
 	return nil
 }
 
 func (b *BridgeNetworkDriver) Disconnect(network *Network, endpoint *Endpoint) error {
+	bridgeName := network.Name
+	// 获取网桥网络接口
+	br, err := netlink.LinkByName(bridgeName)
+	if err != nil {
+		logger.Error("get bridge error: ", err)
+		return err
+	}
+
+	la := netlink.NewLinkAttrs()
+	la.Name = endpoint.ID[:5]
+	logger.Debug("endpoint name: ", la.Name, "endpoint.ID", endpoint.ID)
+	la.MasterIndex = br.Attrs().Index
+
+	endpoint.Device = netlink.Veth{
+		LinkAttrs: la,
+		PeerName:  BridgePeerNamePrefix + endpoint.ID[:5],
+	}
+	// 删除Veth设备
+	if err := netlink.LinkDel(&endpoint.Device); err != nil {
+		return fmt.Errorf("Error Delete Endpoint Device: %v", err)
+	}
 	return nil
 }
 

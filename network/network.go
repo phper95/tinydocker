@@ -267,7 +267,7 @@ func configEndpointNetwork(ep *Endpoint, containerInfo *models.Info) error {
 		return err
 	}
 	// 将当前线程切换到容器的网络命名空间
-	// 返回一个清理函数，用于恢复原始的网络命名空间
+	// 返回一个清理函数，用于恢复原始的网络命名空间(注意configNetNs函数中的逻辑会在当前行执行，但最终返回的函数会在configEndpointNetwork函数返回之前执行，具体执行机制可以参考tinydocker\gobase\9-8\main.go的示例代码)
 	defer configNetNs(&peerLink, containerInfo)()
 	ip := *ep.Network.IPRange
 	ip.IP = ep.IPAddress

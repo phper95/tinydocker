@@ -1,6 +1,9 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"log"
+)
 
 func main() {
 	// 创建Gin引擎（默认模式，生产环境建议使用gin.ReleaseMode）
@@ -17,7 +20,6 @@ func main() {
 		id := c.Param("id")
 		c.String(200, "User ID: %s", id)
 	})
-
 	// 测试：访问http://localhost/user/123，返回"User ID: 123"
 
 	r.GET("/search", func(c *gin.Context) {
@@ -28,7 +30,6 @@ func main() {
 
 		c.String(200, "Keyword: %s, Page: %s, Size: %s", keyword, page, size)
 	})
-
 	// 测试：访问http://localhost/search?keyword=gin&page=2，返回"Keyword: gin, Page: 2, Size: 10"
 
 	// 1. 定义结构体（用于绑定请求体数据）
@@ -59,8 +60,7 @@ func main() {
 			},
 		})
 	})
-
-	// 测试：用Postman发送POST请求到http://localhost:8080/user，请求体为
+	// 测试：用Postman发送POST请求到http://localhost/user，请求体为
 	// {
 	//   "name": "Zhang San",
 	//   "age": 20,
@@ -87,5 +87,8 @@ func main() {
 	// 测试：用Postman以表单形式发送POST请求，填写username和password参数
 
 	// 启动服务，监听80端口
-	r.Run(":80")
+	err := r.Run(":80")
+	if err != nil {
+		log.Println(err)
+	}
 }

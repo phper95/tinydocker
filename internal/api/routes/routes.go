@@ -29,6 +29,28 @@ func SetupRoutes(r *gin.Engine) {
 		containers := v1.Group("/containers")
 		{
 			containers.GET("list", handlers.ListContainers)
+			containers.GET("/:id", handlers.GetContainerInfo)
+			// containers.POST("create", handlers.CreateContainer)
+			// containers.POST("/:id/start", handlers.StartContainer)
+			// containers.POST("/:id/stop", handlers.StopContainer)
+			// containers.DELETE("/:id", handlers.DeleteContainer)
+			// containers.GET("/:id/logs", handlers.GetContainerLogs)
+		}
+		// 镜像相关路由
+		images := v1.Group("/images")
+		{
+			images.GET("", handlers.ListImages)
+			// images.GET("/:id", handlers.GetImage)
+			// images.DELETE("/:id", handlers.DeleteImage)
+		}
+
+		// 网络相关路由
+		networks := v1.Group("/networks")
+		{
+			networks.GET("list", handlers.ListNetworks)
+			// networks.POST("create", handlers.CreateNetwork)
+			// networks.GET("/:id", handlers.GetNetwork)
+			// networks.DELETE("/:id", handlers.DeleteNetwork)
 		}
 	}
 }

@@ -3,17 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/phper95/tinydocker/internal/api/routes"
+	"github.com/phper95/tinydocker/internal/config"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/phper95/tinydocker/internal/api/routes"
-	"github.com/phper95/tinydocker/internal/config"
-
-	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -64,6 +62,5 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)
 	}
-
 	log.Println("Server exiting")
 }

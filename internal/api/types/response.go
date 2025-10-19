@@ -43,7 +43,7 @@ func Success(apiVersion string, data interface{}, pagination *Pagination) *APIRe
 }
 
 // 错误响应
-func Error(code, message, details string) *APIResponse {
+func Error(code string, message, details string) *APIResponse {
 	return &APIResponse{
 		Success:   false,
 		Timestamp: time.Now().UnixMilli(),

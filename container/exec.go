@@ -52,7 +52,7 @@ func Exec(name string, args []string, enableTTY bool) error {
 func GetContainerInfoByName(name string) (*models.Info, error) {
 	all := models.ReadContainersInfo()
 	for _, c := range all {
-		if strings.EqualFold(c.Name, name) {
+		if strings.EqualFold(c.Name, name) || c.Id == name {
 			cc := c
 			return &cc, nil
 		}

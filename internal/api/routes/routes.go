@@ -1,8 +1,14 @@
 package routes
 
 import (
+	"crypto/rand"
+	"github.com/phper95/tinydocker/pkg/logger"
+	"log"
+	"os"
+
 	"github.com/phper95/tinydocker/internal/api/handlers"
 	"github.com/phper95/tinydocker/internal/api/middleware"
+	"github.com/phper95/tinydocker/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,15 +27,42 @@ func SetupRoutes(r *gin.Engine) {
 		})
 	})
 
-	// API 版本分组
-	v1 := r.Group("/api/v1")
-	// 放在代码块中，使代码结构更清晰
+	// 加载 JWT 密钥：优先从环境变量 JWT_SECRET 读取，否则随机生成
+	var jwtSecret []byte
+	if env := os.Getenv("JWT_SECRET"); env != "" {
+		jwtSecret = []byte(env)
+	} else {
+		jwtSecret = make([]byte, 32)
+		if _, err := rand.Read(jwtSecret); err != nil {
+			logger.Error("生成 JWT 密钥失败: %v", err)
+			log.Fatal(err)
+		}
+	}
+	authService := service.NewAuthService(jwtSecret)
+	// 创建处理器
+	authHandler := handlers.NewAuthHandler(authService)
+	// 认证相关路由（不需要认证）
+	auth := r.Group("/api/v1/auth")
 	{
+		auth.POST("/login", authHandler.Login)
+		auth.POST("/register", authHandler.Register)
+	}
+
+	// 受保护的 API 版本分组
+	v1 := r.Group("/api/v1")
+	v1.Use(middleware.AuthMiddleware(authService))
+	{
+		// 认证相关受保护端点
+		authProtected := v1.Group("/auth")
+		{
+			authProtected.GET("/profile", authHandler.GetProfile)
+			authProtected.POST("/logout", authHandler.Logout)
+		}
 		// 容器相关路由
 		containers := v1.Group("/containers")
 		{
-			containers.GET("list", handlers.ListContainers)
-			containers.GET("/:id", handlers.GetContainerInfo)
+			containers.GET("list", middleware.RequirePermission("containers", "list"), handlers.ListContainers)
+			containers.GET("/:id", middleware.RequirePermission("containers", "get"), handlers.GetContainerInfo)
 			// containers.POST("create", handlers.CreateContainer)
 			// containers.POST("/:id/start", handlers.StartContainer)
 			// containers.POST("/:id/stop", handlers.StopContainer)

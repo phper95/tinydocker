@@ -73,3 +73,48 @@ const (
 	// 容器未连接到网络（断开连接时错误）
 	ErrContainerNotConnected = "ErrContainerNotConnected"
 )
+
+// 登录鉴权相关错误码
+const (
+	// 参数错误
+	ErrInvalidParameter = "ErrInvalidParameter"
+
+	// 登录失败
+	ErrLoginFailed = "ErrLoginFailed"
+
+	// 注册失败
+	ErrRegisterFailed = "ErrRegisterFailed"
+
+	// 权限不足
+	ErrUnauthorized = "ErrUnauthorized"
+
+	// 登出失败
+	ErrLogoutFailed = "ErrLogoutFailed"
+
+	// 认证失败
+	ErrAuthFailed = "ErrAuthFailed"
+
+	// 认证服务不可用
+	ErrAuthServiceUnavailable = "ErrAuthServiceUnavailable"
+
+	// 认证服务类型错误
+	ErrAuthServiceTypeInvalid = "ErrAuthServiceTypeInvalid"
+
+	// 无效的用户名或密码
+	ErrInvalidUsernameOrPassword = "ErrInvalidUsernameOrPassword"
+
+	// 用户未登录
+	ErrNotLoggedIn = "ErrNotLoggedIn"
+
+	// 登录凭证无效（如用户名或密码错误）
+	ErrInvalidCredentials = "ErrInvalidCredentials"
+
+	// 访问被拒绝（如权限不足、资源受限）
+	ErrAccessDenied = "ErrAccessDenied"
+
+	// 会话已过期（需要重新登录）
+	ErrSessionExpired = "ErrSessionExpired"
+
+	// 令牌无效（如 JWT 令牌错误）
+	ErrInvalidToken = "ErrInvalidToken"
+)

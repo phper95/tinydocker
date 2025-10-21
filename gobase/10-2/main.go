@@ -19,6 +19,9 @@ func main() {
 		// 获取路由参数
 		id := c.Param("id")
 		c.String(200, "User ID: %s", id)
+		// c.Set("id", id) // 设置一个上下文变量
+		idq := c.Query("id")
+		c.String(200, "Hello User %s idq %s", id, idq)
 	})
 	// 测试：访问http://localhost/user/123，返回"User ID: 123"
 

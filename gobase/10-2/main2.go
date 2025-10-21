@@ -110,8 +110,5 @@ func dateLteNow(fileLevel validator.FieldLevel) bool {
 		return false
 	}
 	// 与当前时间对比
-	if time.Now().Unix()-t < 0 {
-		return false
-	}
-	return true
+	return t <= time.Now().Unix()
 }

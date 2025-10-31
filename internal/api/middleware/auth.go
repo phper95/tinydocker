@@ -91,7 +91,7 @@ func RequirePermission(resource, action string) gin.HandlerFunc {
 		// 检查权限
 		if !s.CheckPermission(ctx, resource, action) {
 			logger.Error("权限不足: resource=%s, action=%s", resource, action)
-			c.JSON(http.StatusForbidden, types.Error(errdefs.ErrAccessDenied, "权限不足", ""))
+			c.JSON(http.StatusForbidden, types.Error(errdefs.ErrAccessDenied, "权限不足", ctx.Username+" 无权访问 "+resource+" "+action))
 			c.Abort()
 			return
 		}

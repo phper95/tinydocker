@@ -107,6 +107,13 @@ func (s *AuthService) Register(req *model.CreateUserRequest) (*model.User, error
 	}
 
 	// 使用bcrypt对用户密码进行加密处理
+	// MinCost：最小值为 4，表示调用GenerateFromPassword函数时允许传入的最小成本值。
+	// MaxCost：最大值为 31，是该函数允许传入的最大成本值。
+	// DefaultCost：默认值为 10，当传入的成本值低于MinCost时，实际会使用这个默认值。
+	// 在密码哈希中，“成本”（cost）通常代表哈希算法的计算复杂度。
+	// 值越高，生成哈希的耗时越长，暴力破解的难度也越大，但同时也会消耗更多系统资源。
+	// 这里的取值范围（4-31）符合 bcrypt 算法对工作因子（work factor）的定义，
+	// 该值每增加 1，哈希计算的工作量就会翻倍。
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		logger.Error("密码加密失败: %v", err)
@@ -216,8 +223,8 @@ func (s *AuthService) CheckPermission(ctx *model.AuthContext, resource, action s
 	}
 
 	// 然后检查用户角色对应的权限（支持通配符匹配）
-	for _, roleName := range ctx.Roles {
-		if role, exists := s.roles[roleName]; exists {
+	for _, roleID := range ctx.Roles {
+		if role, exists := s.roles[roleID]; exists {
 			for _, perm := range role.Permissions {
 				if s.permissionMatch(perm, resource, action) {
 					return true
@@ -418,8 +425,8 @@ func (s *AuthService) getUserPermissions(user *model.User) []string {
 	var permissions []string
 
 	// 遍历用户的所有角色，收集对应权限
-	for _, roleName := range user.Roles {
-		if role, exists := s.roles[roleName]; exists {
+	for _, roleID := range user.Roles {
+		if role, exists := s.roles[roleID]; exists {
 			permissions = append(permissions, role.Permissions...)
 		}
 	}

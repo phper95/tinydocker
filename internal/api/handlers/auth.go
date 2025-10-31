@@ -42,6 +42,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 // Register 用户注册
+// @Summary 用户注册
+// @Description 用户通过提供用户名和密码进行注册
+// @Tags 认证模块
+// @Accept json
+// @Produce json
+// @Param request body model.CreateUserRequest true "注册请求体"
+// @Success 201 {object} types.APIResponse{success=bool,data=model.User,error=nil} "注册成功"
+// @failure 400 {object} types.APIResponse{success=bool,message=string,error=types.APIError,data=nil} "请求参数无效或注册失败"
+// @Router /api/v1/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req model.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -53,7 +62,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	user, err := h.service.Register(&req)
 	if err != nil {
 		logger.Error("用户注册失败: %v", err)
-		c.JSON(http.StatusBadRequest, types.Error(errdefs.ErrRegisterFailed, "注册失败", err.Error()))
+		c.JSON(http.StatusInternalServerError, types.Error(errdefs.ErrRegisterFailed, "注册失败", err.Error()))
 		return
 	}
 
@@ -79,7 +88,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, types.Success(types.ApiVersionV1, ctx, nil))
 }
 
-// Logout 用户登出
+// Logout 用户退出
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// 从 Authorization 头中提取 Bearer Token
 	authHeader := c.GetHeader("Authorization")

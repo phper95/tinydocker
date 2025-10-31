@@ -6,12 +6,18 @@ const ApiVersionV1 = "v1"
 
 // APIResponse 统一的 API 响应格式
 type APIResponse struct {
-	Success    bool        `json:"success"`
-	Timestamp  int64       `json:"timestamp"`
-	ApiVersion string      `json:"api_version"`
-	Data       interface{} `json:"data,omitempty"`
+	// Success 是否成功, true 表示成功, false 表示失败
+	Success bool `json:"success" example:"false"`
+	// Timestamp 响应时间戳, 单位: 毫秒
+	Timestamp int64 `json:"timestamp"`
+	// ApiVersion API 版本号
+	ApiVersion string `json:"api_version"`
+	// Data 响应数据,列表或单个对象
+	Data interface{} `json:"data,omitempty"`
+	// Pagination 分页信息
 	Pagination *Pagination `json:"pagination,omitempty"`
-	Error      *APIError   `json:"error,omitempty"`
+	// Error 错误信息，当成功为 false 时必有
+	Error *APIError `json:"error,omitempty"`
 }
 
 // 分页信息

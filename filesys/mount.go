@@ -188,7 +188,7 @@ func MountPivotRoot(root string) error {
 // 容器需要基本的设备节点（如 /dev/null, /dev/zero 等）来运行程序。
 // 使用 tmpfs 可以动态生成这些设备节点，并且是临时的，重启后不会保留。
 func MountTmpfs() error {
-	moutflags := syscall.MS_NOSUID | syscall.MS_STRICTATIME
+	// moutflags := syscall.MS_NOSUID | syscall.MS_STRICTATIME
 	// 源设备 (source): 通常为 tmpfs，表示使用虚拟文件系统而非物理设备。
 	// 挂载点 (target): /dev，表示将 tmpfs 挂载到容器的 /dev 目录。
 	// 文件系统类型 (fstype): tmpfs，表示使用临时文件系统。
@@ -202,7 +202,50 @@ func MountTmpfs() error {
 	// 因为 tmpfs 是内存中的文件系统，其访问速度远高于磁盘。 更新 atime 带来的额外开销非常小，几乎不会影响性能。
 
 	// 数据字段 (data): "mode=755"，指定挂载的目录模式为 755（即 rwxr-xr-x）。
-	if err := syscall.Mount("tmpfs", "/dev", "tmpfs", uintptr(moutflags), "mode=755"); err != nil {
+	// if err := syscall.Mount("tmpfs", "/dev", "tmpfs", uintptr(moutflags), "mode=755"); err != nil {
+	// 	logger.Error("Failed to mount tmpfs: ", err)
+	// 	return err
+	// }
+
+	// tmpfs vs devtmpfs
+	// devtmpfs（none on /dev type devtmpfs）
+	// 本质：devtmpfs 是 Linux 内核级别的临时文件系统，专门用于自动创建和管理系统中的设备节点（如 /dev/sda、/dev/tty 等）。
+	// 特性：
+	// 内核自动维护：系统启动时，内核会根据检测到的硬件设备，自动在 devtmpfs 中创建对应的设备节点，无需用户
+	// 或 udev 干预（udev 仅在此基础上做进一步扩展）。
+
+	// udev 是 Linux 系统中用于动态管理设备节点的用户态工具集，全称是 Userspace Device Manager（用户空间设备管理器）。它的核心作用是在系统启动或设备热插拔时，自动创建、删除或更新 /dev 目录下的设备节点，并对设备进行精细化管理。
+	// 主要功能：
+	// 动态管理设备节点当系统检测到新设备（如插入 USB 盘、连接打印机等）或移除设备时，udev 会根据内核发送的事件（如 uevent），在 /dev 目录下自动创建或删除对应的设备节点（如 /dev/sdb1 对应 USB 盘分区），无需手动操作。
+	// 设备命名标准化内核默认生成的设备名（如 sda、sdb）可能因设备插入顺序变化而改变，udev 可通过规则配置，为设备分配固定的、易识别的名称（如通过 UUID 绑定 /dev/disk/by-uuid/xxx，或自定义名称）。
+	// 触发自定义动作通过编写 udev 规则（通常存放在 /etc/udev/rules.d/ 或 /lib/udev/rules.d/），可以在设备事件发生时触发特定操作，例如：
+	// 设备插入时自动挂载分区
+	// 为设备设置权限或所有者
+	// 运行脚本记录设备信息等
+	// 整合设备信息udev 会收集设备的详细信息（如厂商、型号、序列号、总线类型等），并通过 sysfs（/sys 目录）与内核交互，为用户态程序提供统一的设备查询接口（如通过 udevadm 工具查看设备属性）。
+	// 与 devtmpfs 的关系：
+	// 现代 Linux 系统中，devtmpfs 是内核级的设备节点基础（内核自动创建最小集的设备节点），而 udev 运行在用户态，基于 devtmpfs 提供更灵活的扩展：
+	// devtmpfs 保证系统启动时最基本的设备节点存在（如 /dev/null、/dev/console）。
+	// udev 在其基础上，根据规则对设备节点进行重命名、设置权限、触发动作等，实现更复杂的设备管理逻辑
+
+	// 持久性：只要系统运行，devtmpfs 就会存在，且设备节点会随硬件状态动态更新（如热插拔设备时自动增减节点）。
+	// 挂载点固定：通常直接挂载在 /dev，是现代 Linux 系统默认的 /dev 实现（替代了早期的静态设备文件系统）。
+	// 内存占用：仅占用少量内存，用于存储设备节点的元数据（而非实际设备数据）。
+
+	// tmpfs 挂载的 /dev（tmpfs on /dev type tmpfs）
+	// 本质：tmpfs 是一种通用的内存文件系统，可用于存储临时数据，其内容完全驻留在内存（或交换分区）中，断电后丢失。
+	// 特性：
+	// 通用性：tmpfs 并非专门为设备节点设计，可用于任何临时文件存储场景（如 /tmp、/run 等）。
+	// 用户态管理：如果 /dev 用 tmpfs 挂载，设备节点需要由用户态程序（如 udev）手动创建和维护，内核不会自动生成。
+	// 灵活性：可通过挂载参数（如 size）限制其最大内存占用，但作为 /dev 使用时通常需要配合 udev 才能正常工作。
+	// 兼容性：早期 Linux 系统或某些嵌入式系统可能使用 tmpfs + udev 模拟 /dev，但现代系统已普遍采用 devtmpfs。
+
+	// 设置挂载标志为 MS_RELATIME，允许相对访问时间更新策略
+	mountFlags := uintptr(syscall.MS_RELATIME)
+	// 代表源设备或文件系统：在挂载操作中，第一个参数是挂载的来源（source）。对于某些虚拟文件系统（如 tmpfs、devtmpfs、proc 等），
+	// 它们并不依赖于具体的物理设备或已存在的目录，因此这个参数可以不指定具体路径。
+	// 使用 "none" 表示无实际源设备：这是一种约定俗成的写法，表明我们不是从某个具体的块设备或者目录进行挂载，而是创建一个新的内存文件系统实例。
+	if err := syscall.Mount("none", "/dev", "devtmpfs", mountFlags, "mode=755"); err != nil {
 		logger.Error("Failed to mount tmpfs: ", err)
 		return err
 	}
